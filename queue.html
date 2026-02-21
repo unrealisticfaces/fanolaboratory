@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Queue Board - Fano Laboratory</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .queue-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            color: white;
+            transition: transform 0.2s;
+        }
+        .queue-card:hover { transform: scale(1.02); }
+        .tech-badge { font-size: 0.75rem; background: #00d1ff; color: #000; }
+    </style>
+</head>
+<body class="bg-dark text-white">
+
+    <nav class="navbar navbar-expand-lg navbar-dark bg-black border-bottom border-secondary">
+        <div class="container-fluid">
+            <a class="navbar-brand fw-bold" href="dashboard.html">Fano Laboratory</a>
+            <div class="collapse navbar-collapse">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item"><a class="nav-link" href="dashboard.html">Dashboard</a></li>
+                    <li class="nav-item"><a class="nav-link" href="sales.html">Sales & Tracking</a></li>
+                    <li class="nav-item"><a class="nav-link active" href="queue.html">Queueing System</a></li>
+                    <li class="nav-item"><a class="nav-link" href="audit.html">Audit Logs</a></li>
+                </ul>
+                <button id="logoutBtn" class="btn btn-outline-light btn-sm">Logout</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>Live Production Queue</h2>
+            <div id="liveTimer" class="text-info fw-bold"></div>
+        </div>
+
+        <div class="row g-3" id="queueContainer">
+            </div>
+    </div>
+
+    <script type="module" src="js/firebase-config.js"></script>
+    <script type="module" src="js/queue.js"></script>
+</body>
+</html>
