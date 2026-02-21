@@ -7,13 +7,13 @@ import { getDatabase } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyC8_dUZlOZAZmgK4geTOTLUxe-8wK1DXn4",
-  authDomain: "dentallab-erp.firebaseapp.com",
-  databaseURL: "https://dentallab-erp-default-rtdb.asia-southeast1.firebasedatabase.app", // Check your Firebase console to ensure this URL matches your chosen region
-  projectId: "dentallab-erp",
-  storageBucket: "dentallab-erp.firebasestorage.app",
-  messagingSenderId: "448951048689",
-  appId: "1:448951048689:web:319be6fe775e2796c00c50"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
 // Initialize Firebase
