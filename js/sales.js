@@ -5,14 +5,16 @@ import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/
 import { ref, push, set, onValue, remove, get, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
 // --- 1. AUTHENTICATION & ROLE CHECK ---
-let currentUserRole = 'staff'; // Default to staff just to be safe
+let currentUserRole = 'staff'; 
+let currentUserName = 'Unknown User';
 
 onAuthStateChanged(auth, (user) => {
     if (!user) {
         window.location.href = 'index.html'; 
     } else {
-        // Grab the role we saved during login
         currentUserRole = localStorage.getItem('userRole') || 'staff';
+        // Retrieve the name to use in Audit Logs
+        currentUserName = localStorage.getItem('userName') || user.email;
     }
 });
 
@@ -25,6 +27,22 @@ if (logoutBtn) {
     });
 }
 
+// --- NEW HELPER: CREATE AUDIT LOG ---
+async function createLog(action, details) {
+    try {
+        const logRef = ref(db, 'audit_logs');
+        const newLogRef = push(logRef);
+        await set(newLogRef, {
+            timestamp: new Date().toLocaleString(),
+            user: currentUserName,
+            action: action,
+            details: details
+        });
+    } catch (error) {
+        console.error("Audit Log Error:", error);
+    }
+}
+
 // --- 2. CREATE: SAVE NEW LAB JOB ---
 const addSaleForm = document.getElementById('addSaleForm');
 
@@ -35,11 +53,15 @@ if (addSaleForm) {
         const newJobData = {
             dateReceived: document.getElementById('dateReceived').value,
             doctor: document.getElementById('doctor').value,
-            technician: document.getElementById('technician').value,
             description: document.getElementById('description').value,
-            units: parseInt(document.getElementById('units').value),
-            shade: document.getElementById('shade').value,
-            amount: parseFloat(document.getElementById('amount').value),
+            units: parseInt(document.getElementById('units').value) || 0,
+            shade: document.getElementById('shade').value || "-",
+            techMetal: document.getElementById('techMetal').value || "-",
+            techBuildUp: document.getElementById('techBuildUp').value || "-",
+            messengerPickUp: document.getElementById('messengerPickUp').value || "-",
+            messengerDeliver: document.getElementById('messengerDeliver').value || "-",
+            dateDeliver: document.getElementById('dateDeliver').value || "-",
+            amount: parseFloat(document.getElementById('amount').value) || 0,
             paymentStatus: document.getElementById('paymentStatus').value,
             amountPaid: parseFloat(document.getElementById('amountPaid').value) || 0,
             status: "In Progress", 
@@ -51,6 +73,9 @@ if (addSaleForm) {
             const salesRef = ref(db, 'sales');
             const newSaleRef = push(salesRef);
             await set(newSaleRef, newJobData);
+
+            // LOG THE ADDITION
+            await createLog("CREATE", `Added job for ${newJobData.doctor}: ${newJobData.description}`);
 
             addSaleForm.reset();
             document.getElementById('amountPaid').value = 0; 
@@ -76,11 +101,27 @@ function renderTable(jobsToRender) {
         const amountPaid = job.amountPaid || 0;
         const balance = job.amount - amountPaid;
         
-        let paymentBadge = 'bg-danger'; 
-        if (job.paymentStatus === 'Paid') paymentBadge = 'bg-success';
-        if (job.paymentStatus === 'Downpayment') paymentBadge = 'bg-info text-dark';
+        // --- 1. BALANCE COLOR LOGIC ---
+        let paymentBadge = 'bg-danger';      
+        let balanceTextClass = 'text-danger'; 
 
-        // CONDITIONAL RENDERING: Only build the Delete button if the user is an Admin
+        if (job.paymentStatus === 'Paid') {
+            paymentBadge = 'bg-success';      
+            balanceTextClass = 'text-success'; 
+        } else if (job.paymentStatus === 'Downpayment') {
+            paymentBadge = 'bg-info text-dark'; 
+            balanceTextClass = 'text-danger';     
+        }
+
+        // --- 2. JOB STATUS COLOR LOGIC (THE FIX) ---
+        let statusBadgeClass = 'bg-warning text-dark'; // Default: In Progress (Yellow)
+
+        if (job.status === 'Completed') {
+            statusBadgeClass = 'bg-success';           // Completed (Blue)
+        } else if (job.status === 'Delivered') {
+            statusBadgeClass = 'bg-success';           // Delivered (Green)
+        }
+
         let actionButtons = `
             <button class="btn btn-sm btn-secondary print-btn mb-1" data-id="${job.id}">Print</button>
             <button class="btn btn-sm btn-primary edit-btn mb-1" data-id="${job.id}">Edit</button>
@@ -95,14 +136,18 @@ function renderTable(jobsToRender) {
             <td>${job.dateReceived}</td>
             <td class="fw-bold">${job.doctor}</td>
             <td>${job.description}</td>
+            <td>${job.units}</td>
             <td><span class="badge bg-secondary">${job.shade}</span></td>
+            <td>${job.techMetal || '-'}</td>
+            <td>${job.techBuildUp || '-'}</td>
+            <td>${job.messengerPickUp || '-'}</td>
+            <td>${job.messengerDeliver || '-'}</td>
+            <td>${job.dateDeliver !== '-' ? job.dateDeliver : '<small class="text-muted">Pending</small>'}</td>
             <td>₱${job.amount.toLocaleString()}</td>
             <td><span class="badge ${paymentBadge}">${job.paymentStatus || 'Unpaid'}</span></td>
-            <td class="text-danger fw-bold">₱${balance.toLocaleString()}</td>
-            <td><span class="badge bg-warning text-dark">${job.status}</span></td>
-            <td>
-                ${actionButtons}
-            </td>
+            <td class="${balanceTextClass} fw-bold">₱${balance.toLocaleString()}</td>
+            <td><span class="badge ${statusBadgeClass}">${job.status}</span></td>
+            <td>${actionButtons}</td>
         `;
         salesTableBody.appendChild(row);
     });
@@ -130,9 +175,12 @@ function applyFilters() {
     const paymentTerm = filterPayment.value;
 
     currentFilteredJobs = allJobs.filter(job => {
-        const matchesSearch = job.doctor.toLowerCase().includes(searchTerm) || 
-                              job.description.toLowerCase().includes(searchTerm) ||
-                              job.shade.toLowerCase().includes(searchTerm);
+        const matchesSearch = 
+            job.doctor.toLowerCase().includes(searchTerm) || 
+            job.description.toLowerCase().includes(searchTerm) ||
+            (job.shade && job.shade.toLowerCase().includes(searchTerm)) ||
+            (job.techMetal && job.techMetal.toLowerCase().includes(searchTerm)) ||
+            (job.techBuildUp && job.techBuildUp.toLowerCase().includes(searchTerm));
         
         const matchesStatus = statusTerm === "All" || job.status === statusTerm;
         const jobPaymentStatus = job.paymentStatus || 'Unpaid';
@@ -157,7 +205,7 @@ if (exportBtn) {
             return;
         }
 
-        let csvContent = "Date Received,Doctor,Technician,Description,Units,Shade,Total Amount,Payment Status,Amount Paid,Balance,Job Status\n";
+        let csvContent = "Date Received,Doctor,Description,Units,Shade,Technician (Metal),Technician (Build Up),Messenger (Pick Up),Messenger (Deliver),Date Delivered,Total Amount,Payment Status,Amount Paid,Balance,Job Status\n";
 
         currentFilteredJobs.forEach(job => {
             const amtPaid = job.amountPaid || 0;
@@ -166,10 +214,14 @@ if (exportBtn) {
             const row = [
                 job.dateReceived,
                 `"${job.doctor}"`,
-                `"${job.technician}"`,
                 `"${job.description}"`,
                 job.units,
-                `"${job.shade}"`,
+                `"${job.shade || '-'}"`,
+                `"${job.techMetal || '-'}"`,
+                `"${job.techBuildUp || '-'}"`,
+                `"${job.messengerPickUp || '-'}"`,
+                `"${job.messengerDeliver || '-'}"`,
+                `"${job.dateDeliver || '-'}"`,
                 job.amount,
                 job.paymentStatus || 'Unpaid',
                 amtPaid,
@@ -179,6 +231,9 @@ if (exportBtn) {
             
             csvContent += row + "\n";
         });
+
+        // LOG THE EXPORT ACTION
+        createLog("EXPORT", `Exported ${currentFilteredJobs.length} records to Excel.`);
 
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement("a");
@@ -202,7 +257,6 @@ salesTableBody.addEventListener('click', async (e) => {
     if (!jobId) return;
 
     if (target.classList.contains('delete-btn')) {
-        // Extra safety check in case someone tries to force a click via dev tools
         if (currentUserRole !== 'admin') {
             alert("You do not have permission to delete records.");
             return;
@@ -210,7 +264,13 @@ salesTableBody.addEventListener('click', async (e) => {
 
         if (confirm("Are you sure you want to delete this lab job?")) {
             try {
+                const snap = await get(ref(db, `sales/${jobId}`));
+                const data = snap.val();
+                
                 await remove(ref(db, `sales/${jobId}`));
+                
+                // LOG THE DELETE
+                await createLog("DELETE", `Deleted job for ${data.doctor} (${data.description})`);
             } catch (error) {
                 console.error("Error deleting record: ", error);
             }
@@ -226,10 +286,16 @@ salesTableBody.addEventListener('click', async (e) => {
                 document.getElementById('editJobId').value = jobId;
                 document.getElementById('editStatus').value = data.status || "In Progress";
                 document.getElementById('editDoctor').value = data.doctor;
-                document.getElementById('editTechnician').value = data.technician;
                 document.getElementById('editDescription').value = data.description;
-                document.getElementById('editUnits').value = data.units;
-                document.getElementById('editShade').value = data.shade;
+                document.getElementById('editUnits').value = data.units || 0;
+                document.getElementById('editShade').value = data.shade !== "-" ? data.shade : "";
+                
+                document.getElementById('editTechMetal').value = data.techMetal !== "-" ? data.techMetal : "";
+                document.getElementById('editTechBuildUp').value = data.techBuildUp !== "-" ? data.techBuildUp : "";
+                document.getElementById('editMessengerPickUp').value = data.messengerPickUp !== "-" ? data.messengerPickUp : "";
+                document.getElementById('editMessengerDeliver').value = data.messengerDeliver !== "-" ? data.messengerDeliver : "";
+                document.getElementById('editDateDeliver').value = data.dateDeliver !== "-" ? data.dateDeliver : "";
+
                 document.getElementById('editAmount').value = data.amount;
                 document.getElementById('editPaymentStatus').value = data.paymentStatus || "Unpaid";
                 document.getElementById('editAmountPaid').value = data.amountPaid || 0;
@@ -249,6 +315,9 @@ salesTableBody.addEventListener('click', async (e) => {
             if (snapshot.exists()) {
                 const data = snapshot.val();
                 
+                // LOG THE PRINT ACTION
+                await createLog("PRINT", `Printed receipt for ${data.doctor}`);
+
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF({
                     orientation: "portrait",
@@ -258,38 +327,46 @@ salesTableBody.addEventListener('click', async (e) => {
 
                 doc.setFontSize(14);
                 doc.setFont("helvetica", "bold");
-                doc.text("DENTAL LAB SYSTEM", 2.125, 0.5, { align: "center" }); 
+                doc.text("DENTAL LAB SYSTEM", 2.125, 0.4, { align: "center" }); 
                 
-                doc.setFontSize(10);
+                doc.setFontSize(9);
                 doc.setFont("helvetica", "normal");
-                doc.text(`Date: ${data.dateReceived}`, 0.5, 0.9);
-                doc.text(`Doctor: ${data.doctor}`, 0.5, 1.1);
-                doc.text(`Technician: ${data.technician}`, 0.5, 1.3);
+                doc.text(`Rec'd: ${data.dateReceived}`, 0.4, 0.7);
+                doc.text(`Doctor: ${data.doctor}`, 0.4, 0.9);
                 
-                doc.line(0.5, 1.4, 3.75, 1.4); 
+                doc.line(0.4, 1.0, 3.85, 1.0); 
                 
                 doc.setFont("helvetica", "bold");
-                doc.text("JOB DETAILS", 0.5, 1.6);
+                doc.text("JOB DETAILS", 0.4, 1.2);
                 doc.setFont("helvetica", "normal");
-                doc.text(`Description: ${data.description}`, 0.5, 1.8);
-                doc.text(`Units: ${data.units}`, 0.5, 2.0);
-                doc.text(`Shade: ${data.shade}`, 0.5, 2.2);
-                doc.text(`Status: ${data.status}`, 0.5, 2.4);
-
-                doc.line(0.5, 2.5, 3.75, 2.5); 
+                doc.text(`Desc: ${data.description}`, 0.4, 1.4);
+                doc.text(`Units: ${data.units} | Shade: ${data.shade}`, 0.4, 1.6);
+                doc.text(`Tech (Metal): ${data.techMetal || '-'}`, 0.4, 1.8);
+                doc.text(`Tech (Build Up): ${data.techBuildUp || '-'}`, 0.4, 2.0);
+                
+                doc.line(0.4, 2.1, 3.85, 2.1); 
 
                 doc.setFont("helvetica", "bold");
-                doc.text("BILLING INFO", 0.5, 2.7);
+                doc.text("LOGISTICS & STATUS", 0.4, 2.3);
+                doc.setFont("helvetica", "normal");
+                doc.text(`Pick Up: ${data.messengerPickUp || '-'} | Deliver: ${data.messengerDeliver || '-'}`, 0.4, 2.5);
+                doc.text(`Date Delivered: ${data.dateDeliver || '-'}`, 0.4, 2.7);
+                doc.text(`Job Status: ${data.status}`, 0.4, 2.9);
+
+                doc.line(0.4, 3.0, 3.85, 3.0); 
+
+                doc.setFont("helvetica", "bold");
+                doc.text("BILLING INFO", 0.4, 3.2);
                 doc.setFont("helvetica", "normal");
                 const amtPaid = data.amountPaid || 0;
                 const balance = data.amount - amtPaid;
-                doc.text(`Total Amount: Php ${data.amount.toLocaleString()}`, 0.5, 2.9);
-                doc.text(`Amount Paid: Php ${amtPaid.toLocaleString()}`, 0.5, 3.1);
-                doc.text(`Balance: Php ${balance.toLocaleString()}`, 0.5, 3.3);
-                doc.text(`Payment Status: ${data.paymentStatus || 'Unpaid'}`, 0.5, 3.5);
+                doc.text(`Total Amount: Php ${data.amount.toLocaleString()}`, 0.4, 3.4);
+                doc.text(`Amount Paid: Php ${amtPaid.toLocaleString()}`, 0.4, 3.6);
+                doc.text(`Balance: Php ${balance.toLocaleString()}`, 0.4, 3.8);
+                doc.text(`Payment Status: ${data.paymentStatus || 'Unpaid'}`, 0.4, 4.0);
 
                 doc.setFont("helvetica", "italic");
-                doc.text("Thank you for your business!", 2.125, 4.5, { align: "center" });
+                doc.text("Thank you for your business!", 2.125, 4.7, { align: "center" });
 
                 doc.save(`Receipt_${data.doctor.replace(/\s+/g, '_')}.pdf`);
             }
@@ -308,17 +385,25 @@ if (editSaleForm) {
         const updatedData = {
             status: document.getElementById('editStatus').value,
             doctor: document.getElementById('editDoctor').value,
-            technician: document.getElementById('editTechnician').value,
             description: document.getElementById('editDescription').value,
-            units: parseInt(document.getElementById('editUnits').value),
-            shade: document.getElementById('editShade').value,
-            amount: parseFloat(document.getElementById('editAmount').value),
+            units: parseInt(document.getElementById('editUnits').value) || 0,
+            shade: document.getElementById('editShade').value || "-",
+            techMetal: document.getElementById('editTechMetal').value || "-",
+            techBuildUp: document.getElementById('editTechBuildUp').value || "-",
+            messengerPickUp: document.getElementById('editMessengerPickUp').value || "-",
+            messengerDeliver: document.getElementById('editMessengerDeliver').value || "-",
+            dateDeliver: document.getElementById('editDateDeliver').value || "-",
+            amount: parseFloat(document.getElementById('editAmount').value) || 0,
             paymentStatus: document.getElementById('editPaymentStatus').value,
             amountPaid: parseFloat(document.getElementById('editAmountPaid').value) || 0,
         };
 
         try {
             await update(ref(db, `sales/${jobId}`), updatedData);
+            
+            // LOG THE UPDATE
+            await createLog("UPDATE", `Updated job for ${updatedData.doctor}. Status: ${updatedData.status}`);
+
             editModalInstance.hide();
         } catch (error) {
             console.error("Error updating record: ", error);

@@ -11,11 +11,12 @@
 
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container-fluid">
-            <a class="navbar-brand" href="dashboard.html">Dental Lab System</a>
+            <a class="navbar-brand" href="dashboard.html">Fano Dental Lab System</a>
             <div class="collapse navbar-collapse">
                 <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                     <li class="nav-item"><a class="nav-link" href="dashboard.html">Dashboard</a></li>
                     <li class="nav-item"><a class="nav-link active" href="sales.html">Sales & Tracking</a></li>
+                    <li class="nav-item"><a class="nav-link" href="audit.html">Audit Logs</a></li>
                 </ul>
                 <div class="d-flex text-white align-items-center">
                     <button id="logoutBtn" class="btn btn-outline-light btn-sm">Logout</button>
@@ -28,7 +29,7 @@
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h2>Sales & Lab Tracking</h2>
             <div>
-                <button class="btn btn-success me-2" id="exportBtn"> Export to Excel</button>
+                <button class="btn btn-success me-2" id="exportBtn">Export to Excel</button>
                 <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addSaleModal">
                     + Add New Job
                 </button>
@@ -37,7 +38,7 @@
 
         <div class="row mb-3">
             <div class="col-md-4 mb-2">
-                <input type="text" id="searchInput" class="form-control" placeholder="Search Doctor, Description, or Shade...">
+                <input type="text" id="searchInput" class="form-control" placeholder="Search Doctor, Desc, Shade, or Tech...">
             </div>
             <div class="col-md-4 mb-2">
                 <select id="filterStatus" class="form-select">
@@ -60,15 +61,21 @@
         <div class="card shadow-sm">
             <div class="card-body">
                 <div class="table-responsive">
-                    <table class="table table-hover table-bordered align-middle">
+                    <table class="table table-hover table-bordered align-middle text-nowrap">
                         <thead class="table-dark">
                             <tr>
-                                <th>Date Rec'd</th>
+                                <th>Date Received</th>
                                 <th>Doctor</th>
                                 <th>Description</th>
+                                <th>Units</th>
                                 <th>Shade</th>
-                                <th>Total (₱)</th>
-                                <th>Payment</th>
+                                <th>Technician (Metal)</th>
+                                <th>Technician (Build Up)</th>
+                                <th> Pick Up</th>
+                                <th>Deliver</th>
+                                <th>Date Delivered</th>
+                                <th>Total Amount (₱)</th>
+                                <th>Payment Status</th>
                                 <th>Balance (₱)</th>
                                 <th>Job Status</th>
                                 <th>Actions</th>
@@ -85,42 +92,67 @@
     <div class="modal fade" id="addSaleModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
-                <div class="modal-header">
+                <div class="modal-header bg-primary text-white">
                     <h5 class="modal-title">Add New Lab Job</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <form id="addSaleForm">
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Date Received</label>
+                        <h6 class="text-primary border-bottom pb-2">Job Details</h6>
+                        <div class="row mb-3">
+                            <div class="col-md-4 mb-2">
+                                <label class="form-label">Date Received <span class="text-danger">*</span></label>
                                 <input type="date" class="form-control" id="dateReceived" required>
                             </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Doctor</label>
-                                <input type="text" class="form-control" id="doctor" required placeholder="e.g. Dr. Miguel">
+                            <div class="col-md-4 mb-2">
+                                <label class="form-label">Doctor <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="doctor" required>
                             </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Technician</label>
-                                <input type="text" class="form-control" id="technician" required>
+                            <div class="col-md-4 mb-2">
+                                <label class="form-label">Description <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="description" required>
                             </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Description</label>
-                                <input type="text" class="form-control" id="description" required placeholder="e.g. Jacket Crown">
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <label class="form-label">Units</label>
+                            <div class="col-md-2 mb-2">
+                                <label class="form-label">Units <span class="text-danger">*</span></label>
                                 <input type="number" class="form-control" id="units" required>
                             </div>
-                            <div class="col-md-4 mb-3">
+                            <div class="col-md-2 mb-2">
                                 <label class="form-label">Shade</label>
-                                <input type="text" class="form-control" id="shade" required placeholder="e.g. A2">
+                                <input type="text" class="form-control" id="shade">
                             </div>
-                            <div class="col-md-4 mb-3">
-                                <label class="form-label">Total Amount (₱)</label>
+                        </div>
+
+                        <h6 class="text-primary border-bottom pb-2 mt-2">Personnel & Logistics</h6>
+                        <div class="row mb-3">
+                            <div class="col-md-6 mb-2">
+                                <label class="form-label">Technician (Metal)</label>
+                                <input type="text" class="form-control" id="techMetal">
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <label class="form-label">Technician (Build Up)</label>
+                                <input type="text" class="form-control" id="techBuildUp">
+                            </div>
+                            <div class="col-md-4 mb-2">
+                                <label class="form-label">Messenger (Pick Up)</label>
+                                <input type="text" class="form-control" id="messengerPickUp">
+                            </div>
+                            <div class="col-md-4 mb-2">
+                                <label class="form-label">Messenger (Deliver)</label>
+                                <input type="text" class="form-control" id="messengerDeliver">
+                            </div>
+                            <div class="col-md-4 mb-2">
+                                <label class="form-label">Date Delivered</label>
+                                <input type="date" class="form-control" id="dateDeliver">
+                            </div>
+                        </div>
+
+                        <h6 class="text-primary border-bottom pb-2 mt-2">Billing Details</h6>
+                        <div class="row mb-3">
+                            <div class="col-md-4 mb-2">
+                                <label class="form-label text-danger fw-bold">Total Amount (₱) <span class="text-danger">*</span></label>
                                 <input type="number" class="form-control" id="amount" required>
                             </div>
-                            <div class="col-md-6 mb-3">
+                            <div class="col-md-4 mb-2">
                                 <label class="form-label text-success fw-bold">Payment Status</label>
                                 <select class="form-select" id="paymentStatus">
                                     <option value="Unpaid">Unpaid</option>
@@ -128,12 +160,12 @@
                                     <option value="Paid">Paid in Full</option>
                                 </select>
                             </div>
-                            <div class="col-md-6 mb-3">
+                            <div class="col-md-4 mb-2">
                                 <label class="form-label text-success fw-bold">Amount Paid (₱)</label>
-                                <input type="number" class="form-control" id="amountPaid" value="0" required>
+                                <input type="number" class="form-control" id="amountPaid" value="0">
                             </div>
                         </div>
-                        <button type="submit" class="btn btn-success w-100">Save Record</button>
+                        <button type="submit" class="btn btn-primary w-100 fw-bold">Save Record</button>
                     </form>
                 </div>
             </div>
@@ -143,47 +175,76 @@
     <div class="modal fade" id="editSaleModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
-                <div class="modal-header">
+                <div class="modal-header bg-warning">
                     <h5 class="modal-title">Edit Lab Job</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <form id="editSaleForm">
                         <input type="hidden" id="editJobId">
-                        <div class="row">
-                            <div class="col-md-12 mb-3">
-                                <label class="form-label fw-bold text-primary">Job Status</label>
-                                <select class="form-select" id="editStatus">
+                        
+                        <div class="row mb-3 border-bottom pb-2">
+                            <div class="col-md-12">
+                                <label class="form-label fw-bold text-dark">Job Status Update</label>
+                                <select class="form-select border-warning shadow-sm" id="editStatus">
                                     <option value="In Progress">In Progress</option>
                                     <option value="Completed">Completed</option>
                                     <option value="Delivered">Delivered</option>
                                 </select>
                             </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Doctor</label>
+                        </div>
+
+                        <h6 class="text-primary border-bottom pb-2">Job Details</h6>
+                        <div class="row mb-3">
+                            <div class="col-md-4 mb-2">
+                                <label class="form-label">Doctor <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control" id="editDoctor" required>
                             </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Technician</label>
-                                <input type="text" class="form-control" id="editTechnician" required>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Description</label>
+                            <div class="col-md-4 mb-2">
+                                <label class="form-label">Description <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control" id="editDescription" required>
                             </div>
-                            <div class="col-md-4 mb-3">
-                                <label class="form-label">Units</label>
+                            <div class="col-md-2 mb-2">
+                                <label class="form-label">Units <span class="text-danger">*</span></label>
                                 <input type="number" class="form-control" id="editUnits" required>
                             </div>
-                            <div class="col-md-4 mb-3">
+                            <div class="col-md-2 mb-2">
                                 <label class="form-label">Shade</label>
-                                <input type="text" class="form-control" id="editShade" required>
+                                <input type="text" class="form-control" id="editShade">
                             </div>
-                            <div class="col-md-4 mb-3">
-                                <label class="form-label">Total Amount (₱)</label>
+                        </div>
+
+                        <h6 class="text-primary border-bottom pb-2 mt-2">Personnel & Logistics</h6>
+                        <div class="row mb-3">
+                            <div class="col-md-6 mb-2">
+                                <label class="form-label">Technician (Metal)</label>
+                                <input type="text" class="form-control" id="editTechMetal">
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <label class="form-label">Technician (Build Up)</label>
+                                <input type="text" class="form-control" id="editTechBuildUp">
+                            </div>
+                            <div class="col-md-4 mb-2">
+                                <label class="form-label">Messenger (Pick Up)</label>
+                                <input type="text" class="form-control" id="editMessengerPickUp">
+                            </div>
+                            <div class="col-md-4 mb-2">
+                                <label class="form-label">Messenger (Deliver)</label>
+                                <input type="text" class="form-control" id="editMessengerDeliver">
+                            </div>
+                            <div class="col-md-4 mb-2">
+                                <label class="form-label">Date Delivered</label>
+                                <input type="date" class="form-control" id="editDateDeliver">
+                            </div>
+                        </div>
+
+                        <h6 class="text-primary border-bottom pb-2 mt-2">Billing Details</h6>
+                        <div class="row mb-3">
+                            <div class="col-md-4 mb-2">
+                                <label class="form-label text-danger fw-bold">Total Amount (₱)</label>
                                 <input type="number" class="form-control" id="editAmount" required>
                             </div>
-                            <div class="col-md-6 mb-3">
+                            <div class="col-md-4 mb-2">
                                 <label class="form-label text-success fw-bold">Payment Status</label>
                                 <select class="form-select" id="editPaymentStatus">
                                     <option value="Unpaid">Unpaid</option>
@@ -191,12 +252,12 @@
                                     <option value="Paid">Paid in Full</option>
                                 </select>
                             </div>
-                            <div class="col-md-6 mb-3">
+                            <div class="col-md-4 mb-2">
                                 <label class="form-label text-success fw-bold">Amount Paid (₱)</label>
-                                <input type="number" class="form-control" id="editAmountPaid" required>
+                                <input type="number" class="form-control" id="editAmountPaid">
                             </div>
                         </div>
-                        <button type="submit" class="btn btn-primary w-100">Update Record</button>
+                        <button type="submit" class="btn btn-warning w-100 fw-bold">Update Record</button>
                     </form>
                 </div>
             </div>
