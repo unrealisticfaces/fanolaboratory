@@ -124,7 +124,7 @@
                             </div>
                             <div class="col-md-3 mb-2">
                                 <label class="form-label text-danger small text-uppercase fw-bold">Due Date</label>
-                                <input type="date" class="form-control border-danger shadow-sm" id="dueDate">
+                                <input type="date" class="form-control border-danger shadow-sm" id="dueDate" required>
                             </div>
                             <div class="col-md-3 mb-2">
                                 <label class="form-label text-info small text-uppercase fw-bold">RX Number</label>
@@ -174,7 +174,7 @@
                         <div class="row mb-4">
                             <div class="col-md-4 mb-2">
                                 <label class="form-label text-secondary small text-uppercase fw-bold">Total Amount (₱) <span class="text-danger">*</span></label>
-                                <input type="number" class="form-control shadow-sm" id="amount" required>
+                                <input type="number" class="form-control shadow-sm" id="amount" step="0.01" required>
                             </div>
                             <div class="col-md-4 mb-2">
                                 <label class="form-label text-secondary small text-uppercase fw-bold">Payment Status</label>
