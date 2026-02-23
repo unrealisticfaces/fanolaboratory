@@ -73,13 +73,13 @@ onValue(salesRef, (snapshot) => {
             // SMART ALERT LOGIC: Check Due Dates for "In Progress" jobs
             if (job.dueDate && job.dueDate !== "-") {
                 const dueObj = new Date(job.dueDate);
-                // Calculate difference in time, then convert to Days
                 const timeDiff = dueObj.getTime() - todayObj.getTime();
                 const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
 
-                // If due in 2 days, 1 day, today (0), or overdue (negative numbers)
+                // Grab the job details if it is due in 2 days or less
                 if (daysDiff <= 2) {
                     urgentJobs.push({
+                        rxNumber: job.rxNumber, // Grab RX Number for the search link
                         doctor: job.doctor,
                         desc: job.description,
                         dueDate: job.dueDate,
@@ -141,20 +141,18 @@ function updateNotifications(urgentJobs) {
     if (!notifBadge || !notifList) return;
 
     if (urgentJobs.length > 0) {
-        // Show Badge Number
         notifBadge.textContent = urgentJobs.length;
         notifBadge.style.display = 'inline-block';
         
         // Sort the most urgent jobs (Overdue/Due Today) to the top
         urgentJobs.sort((a, b) => a.daysLeft - b.daysLeft);
 
-        notifList.innerHTML = ''; // Clear empty state
+        notifList.innerHTML = ''; 
         
         urgentJobs.forEach(uJob => {
             let badgeColor = 'bg-warning text-dark';
             let labelText = `Due in ${uJob.daysLeft} Days`;
             
-            // Color Coding based on urgency
             if (uJob.daysLeft === 0) {
                 badgeColor = 'bg-danger text-white';
                 labelText = 'Due Today!';
@@ -165,21 +163,27 @@ function updateNotifications(urgentJobs) {
                 labelText = 'Due Tomorrow';
             }
 
+            // Create Search URL (Search by RX Number if it exists, otherwise by Doctor Name)
+            let searchQuery = (uJob.rxNumber && uJob.rxNumber !== "-") ? uJob.rxNumber : uJob.doctor;
+            let targetUrl = `sales.html?search=${encodeURIComponent(searchQuery)}&tab=due-dates`;
+
+            // Display RX number next to doctor name if available
+            let rxDisplay = (uJob.rxNumber && uJob.rxNumber !== "-") ? `<small class="text-info ms-1">(${uJob.rxNumber})</small>` : "";
+
             notifList.innerHTML += `
                 <li>
-                    <div class="dropdown-item border-bottom border-secondary py-2" style="white-space: normal;">
+                    <a href="${targetUrl}" class="dropdown-item border-bottom border-secondary py-2 text-decoration-none" style="white-space: normal; display: block;">
                         <div class="d-flex justify-content-between align-items-center mb-1">
-                            <strong class="text-white">${uJob.doctor}</strong>
+                            <strong class="text-white">${uJob.doctor} ${rxDisplay}</strong>
                             <span class="badge ${badgeColor}">${labelText}</span>
                         </div>
                         <small class="text-white-50 d-block">${uJob.desc}</small>
                         <small class="text-info" style="font-size: 0.75rem;">Due: ${uJob.dueDate}</small>
-                    </div>
+                    </a>
                 </li>
             `;
         });
     } else {
-        // Hide Badge and show empty state
         notifBadge.style.display = 'none';
         notifList.innerHTML = `<li><span class="dropdown-item text-muted text-center py-3">No urgent jobs right now. You're all caught up!</span></li>`;
     }
@@ -204,7 +208,7 @@ function renderProductionChart(labels, inProgressData, deliveredData) {
                 {
                     label: 'In Progress',
                     data: inProgressData,
-                    backgroundColor: 'rgba(255, 193, 7, 0.8)', // Yellow
+                    backgroundColor: 'rgba(255, 193, 7, 0.8)', 
                     borderColor: '#ffc107',
                     borderWidth: 2,
                     borderRadius: 4
@@ -212,7 +216,7 @@ function renderProductionChart(labels, inProgressData, deliveredData) {
                 {
                     label: 'Delivered',
                     data: deliveredData,
-                    backgroundColor: 'rgba(25, 135, 84, 0.8)', // Success Green
+                    backgroundColor: 'rgba(25, 135, 84, 0.8)', 
                     borderColor: '#198754',
                     borderWidth: 2,
                     borderRadius: 4
@@ -221,10 +225,7 @@ function renderProductionChart(labels, inProgressData, deliveredData) {
         },
         options: {
             responsive: true,
-            interaction: {
-                mode: 'index',
-                intersect: false,
-            },
+            interaction: { mode: 'index', intersect: false },
             plugins: {
                 legend: { labels: { color: '#ffffff', font: { weight: 'bold' } } },
                 tooltip: {
@@ -240,11 +241,7 @@ function renderProductionChart(labels, inProgressData, deliveredData) {
                     type: 'linear',
                     display: true,
                     title: { display: true, text: 'Number of Lab Jobs', color: '#ffffff', font: { weight: 'bold' } },
-                    ticks: { 
-                        color: '#a0aec0', 
-                        stepSize: 1,
-                        beginAtZero: true
-                    },
+                    ticks: { color: '#a0aec0', stepSize: 1, beginAtZero: true },
                     grid: { color: 'rgba(255, 255, 255, 0.05)' } 
                 },
                 x: {
