@@ -58,7 +58,7 @@ if (addSaleForm) {
             techBuildUp: document.getElementById('techBuildUp').value || "-",
             messengerPickUp: document.getElementById('messengerPickUp').value || "-",
             messengerDeliver: document.getElementById('messengerDeliver').value || "-",
-            dateDeliver: "-", // Automatically blank for new jobs
+            dateDeliver: "-", 
             amount: parseFloat(document.getElementById('amount').value) || 0,
             paymentStatus: document.getElementById('paymentStatus').value,
             amountPaid: parseFloat(document.getElementById('amountPaid').value) || 0,
@@ -125,7 +125,7 @@ function renderTable(jobsToRender) {
 
         const row = document.createElement('tr');
         row.innerHTML = `
-            <td>${job.dateReceived}</td>
+            <td class="fw-bold">${job.dateReceived}</td>
             <td class="fw-bold text-danger">${job.dueDate || '-'}</td>
             <td class="fw-bold text-primary">${job.rxNumber || '-'}</td>
             <td class="fw-bold">${job.doctor}</td>
@@ -155,41 +155,22 @@ onValue(salesRef, (snapshot) => {
         jobData.id = childSnapshot.key; 
         allJobs.push(jobData);
     });
+    
+    // SMART SORTING: Sort by Date Received (Newest First)
+    allJobs.sort((a, b) => {
+        const dateA = new Date(a.dateReceived || 0);
+        const dateB = new Date(b.dateReceived || 0);
+        if (dateB > dateA) return 1;
+        if (dateB < dateA) return -1;
+        // Fallback to timestamp if dates are exactly identical
+        return (b.timestamp || 0) - (a.timestamp || 0);
+    });
+    
     applyFilters();
 });
 
 const searchInput = document.getElementById('searchInput');
 const filterPayment = document.getElementById('filterPayment');
-const tabs = document.querySelectorAll('#salesTabs .nav-link');
-let currentTab = 'all'; 
-
-tabs.forEach(tab => {
-    tab.addEventListener('click', (e) => {
-        e.preventDefault();
-        
-        tabs.forEach(t => {
-            t.classList.remove('active', 'bg-primary', 'bg-danger', 'text-white');
-            if (t.getAttribute('data-tab') === 'due-dates') {
-                t.classList.add('text-danger', 'bg-white', 'border', 'border-danger');
-            } else {
-                t.classList.add('text-dark', 'bg-white', 'border');
-            }
-        });
-
-        const clickedTab = e.target;
-        currentTab = clickedTab.getAttribute('data-tab');
-        
-        if (currentTab === 'due-dates') {
-            clickedTab.classList.remove('text-danger', 'bg-white', 'border', 'border-danger');
-            clickedTab.classList.add('active', 'bg-danger', 'text-white');
-        } else {
-            clickedTab.classList.remove('text-dark', 'bg-white', 'border');
-            clickedTab.classList.add('active', 'bg-primary', 'text-white');
-        }
-
-        applyFilters();
-    });
-});
 
 function applyFilters() {
     const searchTerm = searchInput.value.toLowerCase();
@@ -209,15 +190,6 @@ function applyFilters() {
 
         return matchesSearch && matchesPayment;
     });
-
-    if (currentTab === 'in-progress') {
-        filtered = filtered.filter(job => job.status === 'In Progress');
-    } else if (currentTab === 'delivered') {
-        filtered = filtered.filter(job => job.status === 'Delivered');
-    } else if (currentTab === 'due-dates') {
-        filtered = filtered.filter(job => job.status === 'In Progress' && job.dueDate && job.dueDate !== '-');
-        filtered.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
-    }
 
     currentFilteredJobs = filtered;
     renderTable(currentFilteredJobs);
@@ -291,12 +263,10 @@ salesTableBody.addEventListener('click', async (e) => {
             alert("You do not have permission to delete records.");
             return;
         }
-
         if (confirm("Are you sure you want to delete this lab job?")) {
             try {
                 const snap = await get(ref(db, `sales/${jobId}`));
                 const data = snap.val();
-                
                 await remove(ref(db, `sales/${jobId}`));
                 await createLog("DELETE", `Deleted job for ${data.doctor} (${data.description})`);
             } catch (error) {
@@ -311,7 +281,6 @@ salesTableBody.addEventListener('click', async (e) => {
             if (snapshot.exists()) {
                 const data = snapshot.val();
                 
-                // NO LONGER POPULATING document.getElementById('editStatus')
                 document.getElementById('editJobId').value = jobId;
                 document.getElementById('editDateReceived').value = data.dateReceived;
                 document.getElementById('editDueDate').value = data.dueDate && data.dueDate !== "-" ? data.dueDate : "";
@@ -320,14 +289,11 @@ salesTableBody.addEventListener('click', async (e) => {
                 document.getElementById('editDescription').value = data.description;
                 document.getElementById('editUnits').value = data.units || 0;
                 document.getElementById('editShade').value = data.shade !== "-" ? data.shade : "";
-                
                 document.getElementById('editTechMetal').value = data.techMetal !== "-" ? data.techMetal : "";
                 document.getElementById('editTechBuildUp').value = data.techBuildUp !== "-" ? data.techBuildUp : "";
                 document.getElementById('editMessengerPickUp').value = data.messengerPickUp !== "-" ? data.messengerPickUp : "";
                 document.getElementById('editMessengerDeliver').value = data.messengerDeliver !== "-" ? data.messengerDeliver : "";
-                
                 document.getElementById('editDateDeliver').value = data.dateDeliver !== "-" ? data.dateDeliver : "";
-
                 document.getElementById('editAmount').value = data.amount;
                 document.getElementById('editPaymentStatus').value = data.paymentStatus || "Unpaid";
                 document.getElementById('editAmountPaid').value = data.amountPaid || 0;
@@ -347,7 +313,6 @@ salesTableBody.addEventListener('click', async (e) => {
             const snapshot = await get(ref(db, `sales/${jobId}`));
             if (snapshot.exists()) {
                 const data = snapshot.val();
-                
                 await createLog("PRINT", `Printed receipt for ${data.doctor}`);
 
                 const { jsPDF } = window.jspdf;
@@ -355,12 +320,10 @@ salesTableBody.addEventListener('click', async (e) => {
 
                 const drawReceipt = (logoDataUrl) => {
                     let yPos = 0.5;
-
                     if (logoDataUrl) {
                         const logoWidth = 3.0; 
                         const logoHeight = 1.0; 
                         const xPos = (4.25 - logoWidth) / 2;
-                        
                         doc.addImage(logoDataUrl, 'JPEG', xPos, yPos, logoWidth, logoHeight);
                         yPos += logoHeight + 0.2; 
                     } else {
@@ -372,22 +335,15 @@ salesTableBody.addEventListener('click', async (e) => {
 
                     doc.setLineWidth(0.01); 
                     doc.setDrawColor(0, 0, 0); 
-                    
                     doc.setFontSize(9);
                     doc.setFont("helvetica", "normal");
                     doc.text(`Doctor: ${data.doctor}`, 0.4, yPos); yPos += 0.15;
                     
-                    if(data.rxNumber && data.rxNumber !== "-") {
-                        doc.text(`RX Number: ${data.rxNumber}`, 0.4, yPos); yPos += 0.15;
-                    }
-                    if(data.dueDate && data.dueDate !== "-") {
-                        doc.text(`Due Date: ${data.dueDate}`, 0.4, yPos); yPos += 0.1;
-                    }
+                    if(data.rxNumber && data.rxNumber !== "-") { doc.text(`RX Number: ${data.rxNumber}`, 0.4, yPos); yPos += 0.15; }
+                    if(data.dueDate && data.dueDate !== "-") { doc.text(`Due Date: ${data.dueDate}`, 0.4, yPos); yPos += 0.1; }
                     
                     doc.line(0.4, yPos, 3.85, yPos); yPos += 0.2; 
-                    
-                    doc.setFont("helvetica", "bold");
-                    doc.text("JOB DETAILS", 0.4, yPos); yPos += 0.2;
+                    doc.setFont("helvetica", "bold"); doc.text("JOB DETAILS", 0.4, yPos); yPos += 0.2;
                     doc.setFont("helvetica", "normal");
                     doc.text(`Desc: ${data.description}`, 0.4, yPos); yPos += 0.2;
                     doc.text(`Units: ${data.units} | Shade: ${data.shade}`, 0.4, yPos); yPos += 0.2;
@@ -395,18 +351,14 @@ salesTableBody.addEventListener('click', async (e) => {
                     doc.text(`Tech (Build Up): ${data.techBuildUp || '-'}`, 0.4, yPos); yPos += 0.1;
                     
                     doc.line(0.4, yPos, 3.85, yPos); yPos += 0.2; 
-
-                    doc.setFont("helvetica", "bold");
-                    doc.text("LOGISTICS & STATUS", 0.4, yPos); yPos += 0.2;
+                    doc.setFont("helvetica", "bold"); doc.text("LOGISTICS & STATUS", 0.4, yPos); yPos += 0.2;
                     doc.setFont("helvetica", "normal");
                     doc.text(`Pick Up: ${data.messengerPickUp || '-'} | Deliver: ${data.messengerDeliver || '-'}`, 0.4, yPos); yPos += 0.2;
                     doc.text(`Date Delivered: ${data.dateDeliver || '-'}`, 0.4, yPos); yPos += 0.2;
                     doc.text(`Job Status: ${data.status}`, 0.4, yPos); yPos += 0.1;
 
                     doc.line(0.4, yPos, 3.85, yPos); yPos += 0.2; 
-
-                    doc.setFont("helvetica", "bold");
-                    doc.text("BILLING INFO", 0.4, yPos); yPos += 0.2;
+                    doc.setFont("helvetica", "bold"); doc.text("BILLING INFO", 0.4, yPos); yPos += 0.2;
                     doc.setFont("helvetica", "normal");
                     const amtPaid = data.amountPaid || 0;
                     const balance = data.amount - amtPaid;
@@ -415,47 +367,29 @@ salesTableBody.addEventListener('click', async (e) => {
                     doc.text(`Balance: Php ${balance.toLocaleString()}`, 0.4, yPos); yPos += 0.2;
                     doc.text(`Payment Status: ${data.paymentStatus || 'Unpaid'}`, 0.4, yPos); yPos += 0.5;
 
-                    doc.setFont("helvetica", "italic");
-                    doc.text("Thank you for trusting us!", 2.125, yPos, { align: "center" });
-
+                    doc.setFont("helvetica", "italic"); doc.text("Thank you for trusting us!", 2.125, yPos, { align: "center" });
                     doc.save(`Receipt_${data.doctor.replace(/\s+/g, '_')}.pdf`);
                 };
 
                 const img = new Image();
                 img.crossOrigin = "Anonymous";
-                
                 img.onload = function() {
                     const canvas = document.createElement('canvas');
-                    canvas.width = img.width;
-                    canvas.height = img.height;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0);
-                    
+                    canvas.width = img.width; canvas.height = img.height;
+                    const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0);
                     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                     const pixels = imageData.data;
-                    
                     for (let i = 0; i < pixels.length; i += 4) {
-                        pixels[i] = 255 - pixels[i];         
-                        pixels[i + 1] = 255 - pixels[i + 1]; 
-                        pixels[i + 2] = 255 - pixels[i + 2]; 
+                        pixels[i] = 255 - pixels[i]; pixels[i + 1] = 255 - pixels[i + 1]; pixels[i + 2] = 255 - pixels[i + 2]; 
                     }
                     ctx.putImageData(imageData, 0, 0);
-                    
-                    const invertedLogoDataUrl = canvas.toDataURL('image/jpeg');
-                    drawReceipt(invertedLogoDataUrl);
+                    drawReceipt(canvas.toDataURL('image/jpeg'));
                 };
-                
-                img.onerror = function() {
-                    console.warn("Logo image not found. Proceeding without logo.");
-                    drawReceipt(null); 
-                };
-                
+                img.onerror = function() { drawReceipt(null); };
                 img.src = 'images/fano-logo.jpg'; 
-
             }
         } catch (error) {
-            console.error("Error generating PDF: ", error);
-            alert("Failed to generate receipt.");
+            console.error("Error generating PDF: ", error); alert("Failed to generate receipt.");
         }
     }
 });
@@ -463,14 +397,11 @@ salesTableBody.addEventListener('click', async (e) => {
 if (editSaleForm) {
     editSaleForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        
         const jobId = document.getElementById('editJobId').value;
         
-        // --- SMART LOGIC: Date Dictates Status ---
         let updatedDateDeliver = document.getElementById('editDateDeliver').value;
         let derivedStatus = "In Progress";
 
-        // If there is a valid Date Delivered, it is Delivered. If blank, it is In Progress.
         if (updatedDateDeliver && updatedDateDeliver.trim() !== "") {
             derivedStatus = "Delivered";
         } else {
@@ -479,7 +410,7 @@ if (editSaleForm) {
         }
 
         const updatedData = {
-            status: derivedStatus, // Uses our smart logic
+            status: derivedStatus, 
             dueDate: document.getElementById('editDueDate').value || "-", 
             rxNumber: document.getElementById('editRxNumber').value || "-", 
             doctor: document.getElementById('editDoctor').value,
@@ -489,8 +420,8 @@ if (editSaleForm) {
             techMetal: document.getElementById('editTechMetal').value || "-",
             techBuildUp: document.getElementById('editTechBuildUp').value || "-",
             messengerPickUp: document.getElementById('editMessengerPickUp').value || "-",
-            messengerDeliver: document.getElementById('messengerDeliver').value || "-",
-            dateDeliver: updatedDateDeliver, // Saves the date (or "-")
+            messengerDeliver: document.getElementById('editMessengerDeliver').value || "-",
+            dateDeliver: updatedDateDeliver, 
             amount: parseFloat(document.getElementById('editAmount').value) || 0,
             paymentStatus: document.getElementById('editPaymentStatus').value,
             amountPaid: parseFloat(document.getElementById('editAmountPaid').value) || 0,
@@ -499,25 +430,10 @@ if (editSaleForm) {
 
         try {
             await update(ref(db, `sales/${jobId}`), updatedData);
-            
             await createLog("UPDATE", `Updated job for ${updatedData.doctor}. Status: ${updatedData.status}`);
-
             editModalInstance.hide();
         } catch (error) {
-            console.error("Error updating record: ", error);
-            alert("Failed to update record.");
+            console.error("Error updating record: ", error); alert("Failed to update record.");
         }
     });
 }
-
-window.addEventListener('DOMContentLoaded', () => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const searchParam = urlParams.get('search');
-    const tabParam = urlParams.get('tab');
-
-    if (searchParam) searchInput.value = searchParam;
-    if (tabParam) {
-        const targetTab = document.querySelector(`[data-tab="${tabParam}"]`);
-        if (targetTab) targetTab.click();
-    }
-});
