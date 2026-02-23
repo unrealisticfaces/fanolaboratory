@@ -113,7 +113,7 @@ function renderTable(jobsToRender) {
             balanceTextClass = 'text-danger';     
         }
 
-        // --- 2. JOB STATUS COLOR LOGIC (THE FIX) ---
+        // --- 2. JOB STATUS COLOR LOGIC ---
         let statusBadgeClass = 'bg-warning text-dark'; // Default: In Progress (Yellow)
 
         if (job.status === 'Completed') {
@@ -325,50 +325,108 @@ salesTableBody.addEventListener('click', async (e) => {
                     format: [4.25, 5.5]
                 });
 
-                doc.setFontSize(14);
-                doc.setFont("helvetica", "bold");
-                doc.text("DENTAL LAB SYSTEM", 2.125, 0.4, { align: "center" }); 
+                // Function to build the layout after image is processed
+                const drawReceipt = (logoDataUrl) => {
+                    let yPos = 0.5;
+
+                    // --- ADD LOGO ---
+                    if (logoDataUrl) {
+                        const logoWidth = 3.0; // Wide logo
+                        const logoHeight = 1.0; // Maintain proportion roughly
+                        const xPos = (4.25 - logoWidth) / 2;
+                        
+                        doc.addImage(logoDataUrl, 'JPEG', xPos, yPos, logoWidth, logoHeight);
+                        yPos += logoHeight + 0.2; 
+                    } else {
+                        // Fallback if logo fails
+                        doc.setFontSize(14);
+                        doc.setFont("helvetica", "bold");
+                        doc.text("FANO DENTAL LABORATORY", 2.125, yPos, { align: "center" }); 
+                        yPos += 0.3;
+                    }
+
+                    // --- FIX FOR THICK LINES ---
+                    doc.setLineWidth(0.01); 
+                    doc.setDrawColor(0, 0, 0); 
+                    
+                    doc.setFontSize(9);
+                    doc.setFont("helvetica", "normal");
+                    doc.text(`Doctor: ${data.doctor}`, 0.4, yPos); yPos += 0.1;
+                    
+                    doc.line(0.4, yPos, 3.85, yPos); yPos += 0.2; // Thin line
+                    
+                    doc.setFont("helvetica", "bold");
+                    doc.text("JOB DETAILS", 0.4, yPos); yPos += 0.2;
+                    doc.setFont("helvetica", "normal");
+                    doc.text(`Desc: ${data.description}`, 0.4, yPos); yPos += 0.2;
+                    doc.text(`Units: ${data.units} | Shade: ${data.shade}`, 0.4, yPos); yPos += 0.2;
+                    doc.text(`Tech (Metal): ${data.techMetal || '-'}`, 0.4, yPos); yPos += 0.2;
+                    doc.text(`Tech (Build Up): ${data.techBuildUp || '-'}`, 0.4, yPos); yPos += 0.1;
+                    
+                    doc.line(0.4, yPos, 3.85, yPos); yPos += 0.2; // Thin line
+
+                    doc.setFont("helvetica", "bold");
+                    doc.text("LOGISTICS & STATUS", 0.4, yPos); yPos += 0.2;
+                    doc.setFont("helvetica", "normal");
+                    doc.text(`Pick Up: ${data.messengerPickUp || '-'} | Deliver: ${data.messengerDeliver || '-'}`, 0.4, yPos); yPos += 0.2;
+                    doc.text(`Date Delivered: ${data.dateDeliver || '-'}`, 0.4, yPos); yPos += 0.2;
+                    doc.text(`Job Status: ${data.status}`, 0.4, yPos); yPos += 0.1;
+
+                    doc.line(0.4, yPos, 3.85, yPos); yPos += 0.2; // Thin line
+
+                    doc.setFont("helvetica", "bold");
+                    doc.text("BILLING INFO", 0.4, yPos); yPos += 0.2;
+                    doc.setFont("helvetica", "normal");
+                    const amtPaid = data.amountPaid || 0;
+                    const balance = data.amount - amtPaid;
+                    doc.text(`Total Amount: Php ${data.amount.toLocaleString()}`, 0.4, yPos); yPos += 0.2;
+                    doc.text(`Amount Paid: Php ${amtPaid.toLocaleString()}`, 0.4, yPos); yPos += 0.2;
+                    doc.text(`Balance: Php ${balance.toLocaleString()}`, 0.4, yPos); yPos += 0.2;
+                    doc.text(`Payment Status: ${data.paymentStatus || 'Unpaid'}`, 0.4, yPos); yPos += 0.5;
+
+                    doc.setFont("helvetica", "italic");
+                    doc.text("Thank you for trusting us!", 2.125, yPos, { align: "center" });
+
+                    doc.save(`Receipt_${data.doctor.replace(/\s+/g, '_')}.pdf`);
+                };
+
+                // --- MAGIC: CANVAS INVERSION ---
+                // This converts your white-on-black image to a black-on-white image dynamically
+                const img = new Image();
+                img.crossOrigin = "Anonymous";
                 
-                doc.setFontSize(9);
-                doc.setFont("helvetica", "normal");
-                doc.text(`Rec'd: ${data.dateReceived}`, 0.4, 0.7);
-                doc.text(`Doctor: ${data.doctor}`, 0.4, 0.9);
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+                    
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const pixels = imageData.data;
+                    
+                    // Invert all pixels
+                    for (let i = 0; i < pixels.length; i += 4) {
+                        pixels[i] = 255 - pixels[i];         // Red
+                        pixels[i + 1] = 255 - pixels[i + 1]; // Green
+                        pixels[i + 2] = 255 - pixels[i + 2]; // Blue
+                        // Alpha remains untouched
+                    }
+                    ctx.putImageData(imageData, 0, 0);
+                    
+                    // Convert back to image data and draw receipt
+                    const invertedLogoDataUrl = canvas.toDataURL('image/jpeg');
+                    drawReceipt(invertedLogoDataUrl);
+                };
                 
-                doc.line(0.4, 1.0, 3.85, 1.0); 
+                img.onerror = function() {
+                    console.warn("Logo image not found. Proceeding without logo.");
+                    drawReceipt(null); // Print anyway if image fails
+                };
                 
-                doc.setFont("helvetica", "bold");
-                doc.text("JOB DETAILS", 0.4, 1.2);
-                doc.setFont("helvetica", "normal");
-                doc.text(`Desc: ${data.description}`, 0.4, 1.4);
-                doc.text(`Units: ${data.units} | Shade: ${data.shade}`, 0.4, 1.6);
-                doc.text(`Tech (Metal): ${data.techMetal || '-'}`, 0.4, 1.8);
-                doc.text(`Tech (Build Up): ${data.techBuildUp || '-'}`, 0.4, 2.0);
-                
-                doc.line(0.4, 2.1, 3.85, 2.1); 
+                // MAKE SURE THIS PATH MATCHES YOUR SAVED IMAGE
+                img.src = 'images/fano-logo.jpg'; 
 
-                doc.setFont("helvetica", "bold");
-                doc.text("LOGISTICS & STATUS", 0.4, 2.3);
-                doc.setFont("helvetica", "normal");
-                doc.text(`Pick Up: ${data.messengerPickUp || '-'} | Deliver: ${data.messengerDeliver || '-'}`, 0.4, 2.5);
-                doc.text(`Date Delivered: ${data.dateDeliver || '-'}`, 0.4, 2.7);
-                doc.text(`Job Status: ${data.status}`, 0.4, 2.9);
-
-                doc.line(0.4, 3.0, 3.85, 3.0); 
-
-                doc.setFont("helvetica", "bold");
-                doc.text("BILLING INFO", 0.4, 3.2);
-                doc.setFont("helvetica", "normal");
-                const amtPaid = data.amountPaid || 0;
-                const balance = data.amount - amtPaid;
-                doc.text(`Total Amount: Php ${data.amount.toLocaleString()}`, 0.4, 3.4);
-                doc.text(`Amount Paid: Php ${amtPaid.toLocaleString()}`, 0.4, 3.6);
-                doc.text(`Balance: Php ${balance.toLocaleString()}`, 0.4, 3.8);
-                doc.text(`Payment Status: ${data.paymentStatus || 'Unpaid'}`, 0.4, 4.0);
-
-                doc.setFont("helvetica", "italic");
-                doc.text("Thank you for your business!", 2.125, 4.7, { align: "center" });
-
-                doc.save(`Receipt_${data.doctor.replace(/\s+/g, '_')}.pdf`);
             }
         } catch (error) {
             console.error("Error generating PDF: ", error);
