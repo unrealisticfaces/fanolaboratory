@@ -72,7 +72,7 @@ onValue(salesRef, (snapshot) => {
             <div class="card queue-card p-3 shadow-lg h-100 d-flex flex-column border-0" style="background: rgba(20, 25, 35, 0.95);">
                 <div class="d-flex justify-content-between border-bottom border-secondary pb-2 mb-2">
                     ${dueBadge}
-                    <small class="text-white-50 text-end">Rec'd: ${job.dateReceived}</small>
+                    <small class="text-white-50 text-end">Received: ${job.dateReceived}</small>
                 </div>
                 <h5 class="mb-1 text-info fw-bold">${job.doctor} ${job.rxNumber && job.rxNumber !== '-' ? `<small class="text-white-50 ms-1">(${job.rxNumber})</small>` : ''}</h5>
                 <p class="mb-2 small text-white flex-grow-1">${job.description}</p>

@@ -36,27 +36,32 @@ onValue(salesRef, (snapshot) => {
     let jobsDeliveredCount = 0; 
     let totalPendingPayments = 0; 
 
-    // Setup Dates
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayObj = new Date();
+    // Safe Local Date for "Today"
+    const localYear = todayObj.getFullYear();
+    const localMonth = String(todayObj.getMonth() + 1).padStart(2, '0');
+    const localDay = String(todayObj.getDate()).padStart(2, '0');
+    const todayStr = `${localYear}-${localMonth}-${localDay}`;
     const currentMonth = todayStr.substring(0, 7); 
     
-    // Create Date object for today at Midnight to calculate exact day differences
-    const todayObj = new Date();
     todayObj.setHours(0, 0, 0, 0);
 
     // --- SETUP LAST 7 DAYS FOR THE CHART ---
     const last7Dates = [];
     const chartLabels = [];
-    const inProgressData = [0, 0, 0, 0, 0, 0, 0];
     const deliveredData = [0, 0, 0, 0, 0, 0, 0]; 
 
-    // SMART ALERT ARRAY
     const urgentJobs = [];
 
+    // Build the last 7 days array based strictly on Local Time
     for (let i = 6; i >= 0; i--) {
         const d = new Date();
         d.setDate(d.getDate() - i);
-        const dateString = d.toISOString().split('T')[0]; 
+        const lYear = d.getFullYear();
+        const lMonth = String(d.getMonth() + 1).padStart(2, '0');
+        const lDay = String(d.getDate()).padStart(2, '0');
+        const dateString = `${lYear}-${lMonth}-${lDay}`;
+        
         last7Dates.push(dateString);
         chartLabels.push(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })); 
     }
@@ -70,26 +75,35 @@ onValue(salesRef, (snapshot) => {
         if (job.status === "In Progress") {
             jobsInProgressCount++;
             
-            // SMART ALERT LOGIC: Check Due Dates for "In Progress" jobs
+            // SMART ALERT LOGIC
             if (job.dueDate && job.dueDate !== "-") {
-                const dueObj = new Date(job.dueDate);
-                const timeDiff = dueObj.getTime() - todayObj.getTime();
-                const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+                const parts = job.dueDate.split('-');
+                if(parts.length === 3) {
+                    const dueObj = new Date(parts[0], parts[1] - 1, parts[2]);
+                    const timeDiff = dueObj.getTime() - todayObj.getTime();
+                    const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
 
-                // Grab the job details if it is due in 2 days or less
-                if (daysDiff <= 2) {
-                    urgentJobs.push({
-                        rxNumber: job.rxNumber, // Grab RX Number for the search link
-                        doctor: job.doctor,
-                        desc: job.description,
-                        dueDate: job.dueDate,
-                        daysLeft: daysDiff
-                    });
+                    if (daysDiff <= 2) {
+                        urgentJobs.push({
+                            rxNumber: job.rxNumber, 
+                            doctor: job.doctor,
+                            desc: job.description,
+                            dueDate: job.dueDate,
+                            daysLeft: daysDiff
+                        });
+                    }
                 }
             }
-
         } else if (job.status === "Delivered") {
             jobsDeliveredCount++;
+            
+            // CHART LOGIC: Map delivered jobs based on their Date Delivered
+            if (job.dateDeliver && job.dateDeliver !== "-") {
+                const dateIndex = last7Dates.indexOf(job.dateDeliver);
+                if (dateIndex !== -1) {
+                    deliveredData[dateIndex]++;
+                }
+            }
         }
 
         if (job.dateReceived === todayStr) totalSalesToday += amountPaid;
@@ -97,17 +111,6 @@ onValue(salesRef, (snapshot) => {
         
         const balance = totalAmount - amountPaid;
         if (balance > 0) totalPendingPayments += balance;
-
-        // --- B. CHART LOGIC (Last 7 Days) ---
-        const dateIndex = last7Dates.indexOf(job.dateReceived);
-
-        if (dateIndex !== -1) {
-            if (job.status === 'In Progress') {
-                inProgressData[dateIndex]++;
-            } else if (job.status === 'Delivered') {
-                deliveredData[dateIndex]++;
-            }
-        }
     });
 
     // --- C. UPDATE SMART ALERTS UI ---
@@ -129,8 +132,8 @@ onValue(salesRef, (snapshot) => {
     const pendingPaymentsEl = document.getElementById('pendingPayments');
     if (pendingPaymentsEl) pendingPaymentsEl.textContent = `₱${totalPendingPayments.toLocaleString()}`; 
 
-    // Render the new Production Chart (2 bars)
-    renderProductionChart(chartLabels, inProgressData, deliveredData);
+    // Render the new simplified Production Chart
+    renderProductionChart(chartLabels, deliveredData);
 });
 
 // --- SMART NOTIFICATION RENDERER ---
@@ -144,9 +147,7 @@ function updateNotifications(urgentJobs) {
         notifBadge.textContent = urgentJobs.length;
         notifBadge.style.display = 'inline-block';
         
-        // Sort the most urgent jobs (Overdue/Due Today) to the top
         urgentJobs.sort((a, b) => a.daysLeft - b.daysLeft);
-
         notifList.innerHTML = ''; 
         
         urgentJobs.forEach(uJob => {
@@ -163,11 +164,9 @@ function updateNotifications(urgentJobs) {
                 labelText = 'Due Tomorrow';
             }
 
-            // Create Search URL (Search by RX Number if it exists, otherwise by Doctor Name)
             let searchQuery = (uJob.rxNumber && uJob.rxNumber !== "-") ? uJob.rxNumber : uJob.doctor;
-            let targetUrl = `sales.html?search=${encodeURIComponent(searchQuery)}&tab=due-dates`;
+            let targetUrl = `duedate.html?search=${encodeURIComponent(searchQuery)}`;
 
-            // Display RX number next to doctor name if available
             let rxDisplay = (uJob.rxNumber && uJob.rxNumber !== "-") ? `<small class="text-info ms-1">(${uJob.rxNumber})</small>` : "";
 
             notifList.innerHTML += `
@@ -189,64 +188,100 @@ function updateNotifications(urgentJobs) {
     }
 }
 
-// --- 3. CHART RENDERING FUNCTION ---
-function renderProductionChart(labels, inProgressData, deliveredData) {
-    const ctx = document.getElementById('statusSalesChart');
-    if (!ctx) return; 
+// --- 3. MODERN CHART RENDERING FUNCTION ---
+function renderProductionChart(labels, deliveredData) {
+    const canvas = document.getElementById('statusSalesChart');
+    if (!canvas) return; 
+    
+    const ctx = canvas.getContext('2d');
 
     if (statusChartInstance) {
         statusChartInstance.destroy(); 
     }
 
     Chart.defaults.color = '#a0aec0';
+    Chart.defaults.font.family = "'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+
+    const deliveredGradient = ctx.createLinearGradient(0, 0, 0, 300);
+    deliveredGradient.addColorStop(0, 'rgba(0, 209, 255, 0.4)'); // Cyan fade
+    deliveredGradient.addColorStop(1, 'rgba(0, 209, 255, 0.0)');
 
     statusChartInstance = new Chart(ctx, {
-        type: 'bar',
+        type: 'line', 
         data: {
             labels: labels,
             datasets: [
                 {
-                    label: 'In Progress',
-                    data: inProgressData,
-                    backgroundColor: 'rgba(255, 193, 7, 0.8)', 
-                    borderColor: '#ffc107',
-                    borderWidth: 2,
-                    borderRadius: 4
-                },
-                {
-                    label: 'Delivered',
+                    label: 'Delivered Items',
                     data: deliveredData,
-                    backgroundColor: 'rgba(25, 135, 84, 0.8)', 
-                    borderColor: '#198754',
-                    borderWidth: 2,
-                    borderRadius: 4
+                    backgroundColor: deliveredGradient,
+                    borderColor: '#00d1ff', 
+                    borderWidth: 3,
+                    pointBackgroundColor: '#1e293b',
+                    pointBorderColor: '#00d1ff',
+                    pointBorderWidth: 2,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    fill: true,
+                    tension: 0.4 
                 }
             ]
         },
         options: {
             responsive: true,
-            interaction: { mode: 'index', intersect: false },
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false,
+            },
             plugins: {
-                legend: { labels: { color: '#ffffff', font: { weight: 'bold' } } },
+                legend: { 
+                    position: 'top',
+                    align: 'end',
+                    labels: { 
+                        color: '#ffffff', 
+                        font: { weight: '600', size: 13 },
+                        usePointStyle: true, 
+                        boxWidth: 8
+                    } 
+                },
                 tooltip: {
                     backgroundColor: 'rgba(15, 23, 42, 0.9)',
-                    titleColor: '#00d1ff',
-                    bodyColor: '#ffffff',
+                    titleColor: '#ffffff',
+                    bodyColor: '#e2e8f0',
                     borderColor: 'rgba(255, 255, 255, 0.1)',
-                    borderWidth: 1
+                    borderWidth: 1,
+                    padding: 12,
+                    boxPadding: 4,
+                    usePointStyle: true
                 }
             },
             scales: {
                 y: {
-                    type: 'linear',
-                    display: true,
-                    title: { display: true, text: 'Number of Lab Jobs', color: '#ffffff', font: { weight: 'bold' } },
-                    ticks: { color: '#a0aec0', stepSize: 1, beginAtZero: true },
-                    grid: { color: 'rgba(255, 255, 255, 0.05)' } 
+                    beginAtZero: true,
+                    title: { display: false },
+                    ticks: { 
+                        color: '#64748b', 
+                        stepSize: 1,
+                        padding: 10
+                    },
+                    grid: { 
+                        color: 'rgba(255, 255, 255, 0.05)',
+                        drawBorder: false 
+                    },
+                    border: { display: false }
                 },
                 x: {
-                    ticks: { color: '#ffffff', font: { size: 12, weight: 'bold' } },
-                    grid: { display: false }
+                    ticks: { 
+                        color: '#94a3b8', 
+                        font: { weight: '500' },
+                        padding: 10
+                    },
+                    grid: { 
+                        display: false, 
+                        drawBorder: false
+                    },
+                    border: { display: false }
                 }
             }
         }
