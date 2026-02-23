@@ -13,7 +13,6 @@ onAuthStateChanged(auth, (user) => {
         window.location.href = 'index.html'; 
     } else {
         currentUserRole = localStorage.getItem('userRole') || 'staff';
-        // Retrieve the name to use in Audit Logs
         currentUserName = localStorage.getItem('userName') || user.email;
     }
 });
@@ -52,6 +51,7 @@ if (addSaleForm) {
 
         const newJobData = {
             dateReceived: document.getElementById('dateReceived').value,
+            dueDate: document.getElementById('dueDate').value || "-", 
             doctor: document.getElementById('doctor').value,
             description: document.getElementById('description').value,
             units: parseInt(document.getElementById('units').value) || 0,
@@ -74,7 +74,6 @@ if (addSaleForm) {
             const newSaleRef = push(salesRef);
             await set(newSaleRef, newJobData);
 
-            // LOG THE ADDITION
             await createLog("CREATE", `Added job for ${newJobData.doctor}: ${newJobData.description}`);
 
             addSaleForm.reset();
@@ -101,7 +100,7 @@ function renderTable(jobsToRender) {
         const amountPaid = job.amountPaid || 0;
         const balance = job.amount - amountPaid;
         
-        // --- 1. BALANCE COLOR LOGIC ---
+        // --- BALANCE COLOR LOGIC ---
         let paymentBadge = 'bg-danger';      
         let balanceTextClass = 'text-danger'; 
 
@@ -113,13 +112,11 @@ function renderTable(jobsToRender) {
             balanceTextClass = 'text-danger';     
         }
 
-        // --- 2. JOB STATUS COLOR LOGIC ---
-        let statusBadgeClass = 'bg-warning text-dark'; // Default: In Progress (Yellow)
+        // --- JOB STATUS COLOR LOGIC ---
+        let statusBadgeClass = 'bg-warning text-dark'; 
 
-        if (job.status === 'Completed') {
-            statusBadgeClass = 'bg-success';           // Completed (Blue)
-        } else if (job.status === 'Delivered') {
-            statusBadgeClass = 'bg-success';           // Delivered (Green)
+        if (job.status === 'Delivered') {
+            statusBadgeClass = 'bg-success text-white'; 
         }
 
         let actionButtons = `
@@ -134,6 +131,7 @@ function renderTable(jobsToRender) {
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>${job.dateReceived}</td>
+            <td class="fw-bold text-danger">${job.dueDate || '-'}</td>
             <td class="fw-bold">${job.doctor}</td>
             <td>${job.description}</td>
             <td>${job.units}</td>
@@ -164,17 +162,50 @@ onValue(salesRef, (snapshot) => {
     applyFilters();
 });
 
-// FILTER LOGIC
+// --- TABS & FILTER LOGIC (UPDATED FOR LIGHT THEME) ---
 const searchInput = document.getElementById('searchInput');
-const filterStatus = document.getElementById('filterStatus');
 const filterPayment = document.getElementById('filterPayment');
+const tabs = document.querySelectorAll('#salesTabs .nav-link');
+
+let currentTab = 'all'; // Default tab
+
+// Switch Tabs Event Listener
+tabs.forEach(tab => {
+    tab.addEventListener('click', (e) => {
+        e.preventDefault();
+        
+        // 1. Reset all tabs to inactive state (White background, dark text)
+        tabs.forEach(t => {
+            t.classList.remove('active', 'bg-primary', 'bg-danger', 'text-white');
+            
+            if (t.getAttribute('data-tab') === 'due-dates') {
+                t.classList.add('text-danger', 'bg-white', 'border', 'border-danger');
+            } else {
+                t.classList.add('text-dark', 'bg-white', 'border');
+            }
+        });
+
+        // 2. Apply active styles to the clicked tab
+        const clickedTab = e.target;
+        currentTab = clickedTab.getAttribute('data-tab');
+        
+        if (currentTab === 'due-dates') {
+            clickedTab.classList.remove('text-danger', 'bg-white', 'border', 'border-danger');
+            clickedTab.classList.add('active', 'bg-danger', 'text-white');
+        } else {
+            clickedTab.classList.remove('text-dark', 'bg-white', 'border');
+            clickedTab.classList.add('active', 'bg-primary', 'text-white');
+        }
+
+        applyFilters();
+    });
+});
 
 function applyFilters() {
     const searchTerm = searchInput.value.toLowerCase();
-    const statusTerm = filterStatus.value;
     const paymentTerm = filterPayment.value;
 
-    currentFilteredJobs = allJobs.filter(job => {
+    let filtered = allJobs.filter(job => {
         const matchesSearch = 
             job.doctor.toLowerCase().includes(searchTerm) || 
             job.description.toLowerCase().includes(searchTerm) ||
@@ -182,18 +213,30 @@ function applyFilters() {
             (job.techMetal && job.techMetal.toLowerCase().includes(searchTerm)) ||
             (job.techBuildUp && job.techBuildUp.toLowerCase().includes(searchTerm));
         
-        const matchesStatus = statusTerm === "All" || job.status === statusTerm;
         const jobPaymentStatus = job.paymentStatus || 'Unpaid';
         const matchesPayment = paymentTerm === "All" || jobPaymentStatus === paymentTerm;
 
-        return matchesSearch && matchesStatus && matchesPayment;
+        return matchesSearch && matchesPayment;
     });
 
+    // Apply the active Tab rules
+    if (currentTab === 'in-progress') {
+        filtered = filtered.filter(job => job.status === 'In Progress');
+    } else if (currentTab === 'delivered') {
+        filtered = filtered.filter(job => job.status === 'Delivered');
+    } else if (currentTab === 'due-dates') {
+        // Filter: Only active jobs with a specific Due Date
+        filtered = filtered.filter(job => job.status === 'In Progress' && job.dueDate && job.dueDate !== '-');
+        
+        // Sort: Earliest due dates at the top
+        filtered.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+    }
+
+    currentFilteredJobs = filtered;
     renderTable(currentFilteredJobs);
 }
 
 searchInput.addEventListener('input', applyFilters);
-filterStatus.addEventListener('change', applyFilters);
 filterPayment.addEventListener('change', applyFilters);
 
 // --- 4. EXPORT TO EXCEL (CSV) ---
@@ -205,7 +248,7 @@ if (exportBtn) {
             return;
         }
 
-        let csvContent = "Date Received,Doctor,Description,Units,Shade,Technician (Metal),Technician (Build Up),Messenger (Pick Up),Messenger (Deliver),Date Delivered,Total Amount,Payment Status,Amount Paid,Balance,Job Status\n";
+        let csvContent = "Date Received,Due Date,Doctor,Description,Units,Shade,Technician (Metal),Technician (Build Up),Messenger (Pick Up),Messenger (Deliver),Date Delivered,Total Amount,Payment Status,Amount Paid,Balance,Job Status\n";
 
         currentFilteredJobs.forEach(job => {
             const amtPaid = job.amountPaid || 0;
@@ -213,6 +256,7 @@ if (exportBtn) {
             
             const row = [
                 job.dateReceived,
+                job.dueDate || '-',
                 `"${job.doctor}"`,
                 `"${job.description}"`,
                 job.units,
@@ -232,7 +276,6 @@ if (exportBtn) {
             csvContent += row + "\n";
         });
 
-        // LOG THE EXPORT ACTION
         createLog("EXPORT", `Exported ${currentFilteredJobs.length} records to Excel.`);
 
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -268,8 +311,6 @@ salesTableBody.addEventListener('click', async (e) => {
                 const data = snap.val();
                 
                 await remove(ref(db, `sales/${jobId}`));
-                
-                // LOG THE DELETE
                 await createLog("DELETE", `Deleted job for ${data.doctor} (${data.description})`);
             } catch (error) {
                 console.error("Error deleting record: ", error);
@@ -285,6 +326,8 @@ salesTableBody.addEventListener('click', async (e) => {
                 
                 document.getElementById('editJobId').value = jobId;
                 document.getElementById('editStatus').value = data.status || "In Progress";
+                document.getElementById('editDateReceived').value = data.dateReceived;
+                document.getElementById('editDueDate').value = data.dueDate && data.dueDate !== "-" ? data.dueDate : "";
                 document.getElementById('editDoctor').value = data.doctor;
                 document.getElementById('editDescription').value = data.description;
                 document.getElementById('editUnits').value = data.units || 0;
@@ -315,45 +358,41 @@ salesTableBody.addEventListener('click', async (e) => {
             if (snapshot.exists()) {
                 const data = snapshot.val();
                 
-                // LOG THE PRINT ACTION
                 await createLog("PRINT", `Printed receipt for ${data.doctor}`);
 
                 const { jsPDF } = window.jspdf;
-                const doc = new jsPDF({
-                    orientation: "portrait",
-                    unit: "in",
-                    format: [4.25, 5.5]
-                });
+                const doc = new jsPDF({ orientation: "portrait", unit: "in", format: [4.25, 5.5] });
 
-                // Function to build the layout after image is processed
                 const drawReceipt = (logoDataUrl) => {
                     let yPos = 0.5;
 
-                    // --- ADD LOGO ---
                     if (logoDataUrl) {
-                        const logoWidth = 3.0; // Wide logo
-                        const logoHeight = 1.0; // Maintain proportion roughly
+                        const logoWidth = 3.0; 
+                        const logoHeight = 1.0; 
                         const xPos = (4.25 - logoWidth) / 2;
                         
                         doc.addImage(logoDataUrl, 'JPEG', xPos, yPos, logoWidth, logoHeight);
                         yPos += logoHeight + 0.2; 
                     } else {
-                        // Fallback if logo fails
                         doc.setFontSize(14);
                         doc.setFont("helvetica", "bold");
                         doc.text("FANO DENTAL LABORATORY", 2.125, yPos, { align: "center" }); 
                         yPos += 0.3;
                     }
 
-                    // --- FIX FOR THICK LINES ---
                     doc.setLineWidth(0.01); 
                     doc.setDrawColor(0, 0, 0); 
                     
                     doc.setFontSize(9);
                     doc.setFont("helvetica", "normal");
-                    doc.text(`Doctor: ${data.doctor}`, 0.4, yPos); yPos += 0.1;
+                    doc.text(`Doctor: ${data.doctor}`, 0.4, yPos); yPos += 0.15;
                     
-                    doc.line(0.4, yPos, 3.85, yPos); yPos += 0.2; // Thin line
+                    // Added Due Date to the printed receipt
+                    if(data.dueDate && data.dueDate !== "-") {
+                        doc.text(`Due Date: ${data.dueDate}`, 0.4, yPos); yPos += 0.1;
+                    }
+                    
+                    doc.line(0.4, yPos, 3.85, yPos); yPos += 0.2; 
                     
                     doc.setFont("helvetica", "bold");
                     doc.text("JOB DETAILS", 0.4, yPos); yPos += 0.2;
@@ -363,7 +402,7 @@ salesTableBody.addEventListener('click', async (e) => {
                     doc.text(`Tech (Metal): ${data.techMetal || '-'}`, 0.4, yPos); yPos += 0.2;
                     doc.text(`Tech (Build Up): ${data.techBuildUp || '-'}`, 0.4, yPos); yPos += 0.1;
                     
-                    doc.line(0.4, yPos, 3.85, yPos); yPos += 0.2; // Thin line
+                    doc.line(0.4, yPos, 3.85, yPos); yPos += 0.2; 
 
                     doc.setFont("helvetica", "bold");
                     doc.text("LOGISTICS & STATUS", 0.4, yPos); yPos += 0.2;
@@ -372,7 +411,7 @@ salesTableBody.addEventListener('click', async (e) => {
                     doc.text(`Date Delivered: ${data.dateDeliver || '-'}`, 0.4, yPos); yPos += 0.2;
                     doc.text(`Job Status: ${data.status}`, 0.4, yPos); yPos += 0.1;
 
-                    doc.line(0.4, yPos, 3.85, yPos); yPos += 0.2; // Thin line
+                    doc.line(0.4, yPos, 3.85, yPos); yPos += 0.2; 
 
                     doc.setFont("helvetica", "bold");
                     doc.text("BILLING INFO", 0.4, yPos); yPos += 0.2;
@@ -390,8 +429,6 @@ salesTableBody.addEventListener('click', async (e) => {
                     doc.save(`Receipt_${data.doctor.replace(/\s+/g, '_')}.pdf`);
                 };
 
-                // --- MAGIC: CANVAS INVERSION ---
-                // This converts your white-on-black image to a black-on-white image dynamically
                 const img = new Image();
                 img.crossOrigin = "Anonymous";
                 
@@ -405,26 +442,22 @@ salesTableBody.addEventListener('click', async (e) => {
                     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                     const pixels = imageData.data;
                     
-                    // Invert all pixels
                     for (let i = 0; i < pixels.length; i += 4) {
-                        pixels[i] = 255 - pixels[i];         // Red
-                        pixels[i + 1] = 255 - pixels[i + 1]; // Green
-                        pixels[i + 2] = 255 - pixels[i + 2]; // Blue
-                        // Alpha remains untouched
+                        pixels[i] = 255 - pixels[i];         
+                        pixels[i + 1] = 255 - pixels[i + 1]; 
+                        pixels[i + 2] = 255 - pixels[i + 2]; 
                     }
                     ctx.putImageData(imageData, 0, 0);
                     
-                    // Convert back to image data and draw receipt
                     const invertedLogoDataUrl = canvas.toDataURL('image/jpeg');
                     drawReceipt(invertedLogoDataUrl);
                 };
                 
                 img.onerror = function() {
                     console.warn("Logo image not found. Proceeding without logo.");
-                    drawReceipt(null); // Print anyway if image fails
+                    drawReceipt(null); 
                 };
                 
-                // MAKE SURE THIS PATH MATCHES YOUR SAVED IMAGE
                 img.src = 'images/fano-logo.jpg'; 
 
             }
@@ -442,6 +475,7 @@ if (editSaleForm) {
         const jobId = document.getElementById('editJobId').value;
         const updatedData = {
             status: document.getElementById('editStatus').value,
+            dueDate: document.getElementById('editDueDate').value || "-", // UPDATE DUE DATE
             doctor: document.getElementById('editDoctor').value,
             description: document.getElementById('editDescription').value,
             units: parseInt(document.getElementById('editUnits').value) || 0,
@@ -459,7 +493,6 @@ if (editSaleForm) {
         try {
             await update(ref(db, `sales/${jobId}`), updatedData);
             
-            // LOG THE UPDATE
             await createLog("UPDATE", `Updated job for ${updatedData.doctor}. Status: ${updatedData.status}`);
 
             editModalInstance.hide();

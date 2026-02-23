@@ -33,19 +33,25 @@ onValue(salesRef, (snapshot) => {
     let totalSalesToday = 0;
     let totalSalesMonth = 0;
     let jobsInProgressCount = 0;
-    let jobsCompletedCount = 0; 
     let jobsDeliveredCount = 0; 
     let totalPendingPayments = 0; 
 
-    const today = new Date().toISOString().split('T')[0];
-    const currentMonth = today.substring(0, 7); 
+    // Setup Dates
+    const todayStr = new Date().toISOString().split('T')[0];
+    const currentMonth = todayStr.substring(0, 7); 
+    
+    // Create Date object for today at Midnight to calculate exact day differences
+    const todayObj = new Date();
+    todayObj.setHours(0, 0, 0, 0);
 
     // --- SETUP LAST 7 DAYS FOR THE CHART ---
     const last7Dates = [];
     const chartLabels = [];
     const inProgressData = [0, 0, 0, 0, 0, 0, 0];
-    const completedData = [0, 0, 0, 0, 0, 0, 0];
     const deliveredData = [0, 0, 0, 0, 0, 0, 0]; 
+
+    // SMART ALERT ARRAY
+    const urgentJobs = [];
 
     for (let i = 6; i >= 0; i--) {
         const d = new Date();
@@ -63,13 +69,30 @@ onValue(salesRef, (snapshot) => {
         // --- A. TOP CARDS LOGIC ---
         if (job.status === "In Progress") {
             jobsInProgressCount++;
-        } else if (job.status === "Completed") {
-            jobsCompletedCount++;
+            
+            // SMART ALERT LOGIC: Check Due Dates for "In Progress" jobs
+            if (job.dueDate && job.dueDate !== "-") {
+                const dueObj = new Date(job.dueDate);
+                // Calculate difference in time, then convert to Days
+                const timeDiff = dueObj.getTime() - todayObj.getTime();
+                const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+
+                // If due in 2 days, 1 day, today (0), or overdue (negative numbers)
+                if (daysDiff <= 2) {
+                    urgentJobs.push({
+                        doctor: job.doctor,
+                        desc: job.description,
+                        dueDate: job.dueDate,
+                        daysLeft: daysDiff
+                    });
+                }
+            }
+
         } else if (job.status === "Delivered") {
             jobsDeliveredCount++;
         }
 
-        if (job.dateReceived === today) totalSalesToday += amountPaid;
+        if (job.dateReceived === todayStr) totalSalesToday += amountPaid;
         if (job.dateReceived.startsWith(currentMonth)) totalSalesMonth += amountPaid;
         
         const balance = totalAmount - amountPaid;
@@ -81,13 +104,14 @@ onValue(salesRef, (snapshot) => {
         if (dateIndex !== -1) {
             if (job.status === 'In Progress') {
                 inProgressData[dateIndex]++;
-            } else if (job.status === 'Completed') {
-                completedData[dateIndex]++;
             } else if (job.status === 'Delivered') {
                 deliveredData[dateIndex]++;
             }
         }
     });
+
+    // --- C. UPDATE SMART ALERTS UI ---
+    updateNotifications(urgentJobs);
 
     // Update HTML cards
     const salesTodayEl = document.getElementById('salesToday');
@@ -99,21 +123,70 @@ onValue(salesRef, (snapshot) => {
     const jobsInProgressEl = document.getElementById('jobsInProgress');
     if (jobsInProgressEl) jobsInProgressEl.textContent = jobsInProgressCount;
 
-    const jobsCompletedEl = document.getElementById('jobsCompleted');
-    if (jobsCompletedEl) jobsCompletedEl.textContent = jobsCompletedCount;
-
     const jobsDeliveredEl = document.getElementById('jobsDelivered');
     if (jobsDeliveredEl) jobsDeliveredEl.textContent = jobsDeliveredCount;
     
     const pendingPaymentsEl = document.getElementById('pendingPayments');
     if (pendingPaymentsEl) pendingPaymentsEl.textContent = `₱${totalPendingPayments.toLocaleString()}`; 
 
-    // Render the new Production Chart
-    renderProductionChart(chartLabels, inProgressData, completedData, deliveredData);
+    // Render the new Production Chart (2 bars)
+    renderProductionChart(chartLabels, inProgressData, deliveredData);
 });
 
-// --- 3. CHART RENDERING FUNCTION (3 BARS) ---
-function renderProductionChart(labels, inProgressData, completedData, deliveredData) {
+// --- SMART NOTIFICATION RENDERER ---
+function updateNotifications(urgentJobs) {
+    const notifBadge = document.getElementById('notificationCount');
+    const notifList = document.getElementById('notificationList');
+
+    if (!notifBadge || !notifList) return;
+
+    if (urgentJobs.length > 0) {
+        // Show Badge Number
+        notifBadge.textContent = urgentJobs.length;
+        notifBadge.style.display = 'inline-block';
+        
+        // Sort the most urgent jobs (Overdue/Due Today) to the top
+        urgentJobs.sort((a, b) => a.daysLeft - b.daysLeft);
+
+        notifList.innerHTML = ''; // Clear empty state
+        
+        urgentJobs.forEach(uJob => {
+            let badgeColor = 'bg-warning text-dark';
+            let labelText = `Due in ${uJob.daysLeft} Days`;
+            
+            // Color Coding based on urgency
+            if (uJob.daysLeft === 0) {
+                badgeColor = 'bg-danger text-white';
+                labelText = 'Due Today!';
+            } else if (uJob.daysLeft < 0) {
+                badgeColor = 'bg-danger text-white';
+                labelText = `Overdue (${Math.abs(uJob.daysLeft)} Days)`;
+            } else if (uJob.daysLeft === 1) {
+                labelText = 'Due Tomorrow';
+            }
+
+            notifList.innerHTML += `
+                <li>
+                    <div class="dropdown-item border-bottom border-secondary py-2" style="white-space: normal;">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <strong class="text-white">${uJob.doctor}</strong>
+                            <span class="badge ${badgeColor}">${labelText}</span>
+                        </div>
+                        <small class="text-white-50 d-block">${uJob.desc}</small>
+                        <small class="text-info" style="font-size: 0.75rem;">Due: ${uJob.dueDate}</small>
+                    </div>
+                </li>
+            `;
+        });
+    } else {
+        // Hide Badge and show empty state
+        notifBadge.style.display = 'none';
+        notifList.innerHTML = `<li><span class="dropdown-item text-muted text-center py-3">No urgent jobs right now. You're all caught up!</span></li>`;
+    }
+}
+
+// --- 3. CHART RENDERING FUNCTION ---
+function renderProductionChart(labels, inProgressData, deliveredData) {
     const ctx = document.getElementById('statusSalesChart');
     if (!ctx) return; 
 
@@ -133,14 +206,6 @@ function renderProductionChart(labels, inProgressData, completedData, deliveredD
                     data: inProgressData,
                     backgroundColor: 'rgba(255, 193, 7, 0.8)', // Yellow
                     borderColor: '#ffc107',
-                    borderWidth: 2,
-                    borderRadius: 4
-                },
-                {
-                    label: 'Completed (In Lab)',
-                    data: completedData,
-                    backgroundColor: 'rgba(13, 110, 253, 0.8)', // Primary Blue
-                    borderColor: '#0d6efd',
                     borderWidth: 2,
                     borderRadius: 4
                 },
