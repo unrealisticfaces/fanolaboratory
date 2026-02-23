@@ -206,16 +206,6 @@
                 <div class="modal-body bg-white text-dark p-4">
                     <form id="editSaleForm">
                         <input type="hidden" id="editJobId">
-                        
-                        <div class="row mb-4 border-bottom pb-3">
-                            <div class="col-md-12">
-                                <label class="form-label text-secondary small text-uppercase fw-bold">Job Status Update</label>
-                                <select class="form-select fw-bold border-warning shadow-sm bg-light" id="editStatus">
-                                    <option value="In Progress">In Progress</option>
-                                    <option value="Delivered">Delivered</option>
-                                </select>
-                            </div>
-                        </div>
 
                         <h6 class="text-warning border-bottom pb-2 fw-bold">Job Details</h6>
                         <div class="row mb-3">
@@ -277,8 +267,9 @@
                                 <input type="text" class="form-control shadow-sm" id="editMessengerDeliver">
                             </div>
                             <div class="col-md-4 mb-2">
-                                <label class="form-label text-secondary small text-uppercase fw-bold">Date Delivered</label>
-                                <input type="date" class="form-control shadow-sm" id="editDateDeliver">
+                                <label class="form-label text-success small text-uppercase fw-bold">Date Delivered</label>
+                                <input type="date" class="form-control border-success shadow-sm" id="editDateDeliver">
+                                <small class="text-muted" style="font-size: 0.7rem;">Filling this automatically marks the job as "Delivered"</small>
                             </div>
                         </div>
 

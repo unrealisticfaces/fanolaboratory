@@ -311,8 +311,8 @@ salesTableBody.addEventListener('click', async (e) => {
             if (snapshot.exists()) {
                 const data = snapshot.val();
                 
+                // NO LONGER POPULATING document.getElementById('editStatus')
                 document.getElementById('editJobId').value = jobId;
-                document.getElementById('editStatus').value = data.status || "In Progress";
                 document.getElementById('editDateReceived').value = data.dateReceived;
                 document.getElementById('editDueDate').value = data.dueDate && data.dueDate !== "-" ? data.dueDate : "";
                 document.getElementById('editRxNumber').value = data.rxNumber && data.rxNumber !== "-" ? data.rxNumber : ""; 
@@ -326,7 +326,6 @@ salesTableBody.addEventListener('click', async (e) => {
                 document.getElementById('editMessengerPickUp').value = data.messengerPickUp !== "-" ? data.messengerPickUp : "";
                 document.getElementById('editMessengerDeliver').value = data.messengerDeliver !== "-" ? data.messengerDeliver : "";
                 
-                // Set the current Date Delivered if it exists
                 document.getElementById('editDateDeliver').value = data.dateDeliver !== "-" ? data.dateDeliver : "";
 
                 document.getElementById('editAmount').value = data.amount;
@@ -344,7 +343,120 @@ salesTableBody.addEventListener('click', async (e) => {
     }
 
     if (target.classList.contains('print-btn')) {
-        // [Existing print-btn code remains unchanged here...]
+        try {
+            const snapshot = await get(ref(db, `sales/${jobId}`));
+            if (snapshot.exists()) {
+                const data = snapshot.val();
+                
+                await createLog("PRINT", `Printed receipt for ${data.doctor}`);
+
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF({ orientation: "portrait", unit: "in", format: [4.25, 5.5] });
+
+                const drawReceipt = (logoDataUrl) => {
+                    let yPos = 0.5;
+
+                    if (logoDataUrl) {
+                        const logoWidth = 3.0; 
+                        const logoHeight = 1.0; 
+                        const xPos = (4.25 - logoWidth) / 2;
+                        
+                        doc.addImage(logoDataUrl, 'JPEG', xPos, yPos, logoWidth, logoHeight);
+                        yPos += logoHeight + 0.2; 
+                    } else {
+                        doc.setFontSize(14);
+                        doc.setFont("helvetica", "bold");
+                        doc.text("FANO DENTAL LABORATORY", 2.125, yPos, { align: "center" }); 
+                        yPos += 0.3;
+                    }
+
+                    doc.setLineWidth(0.01); 
+                    doc.setDrawColor(0, 0, 0); 
+                    
+                    doc.setFontSize(9);
+                    doc.setFont("helvetica", "normal");
+                    doc.text(`Doctor: ${data.doctor}`, 0.4, yPos); yPos += 0.15;
+                    
+                    if(data.rxNumber && data.rxNumber !== "-") {
+                        doc.text(`RX Number: ${data.rxNumber}`, 0.4, yPos); yPos += 0.15;
+                    }
+                    if(data.dueDate && data.dueDate !== "-") {
+                        doc.text(`Due Date: ${data.dueDate}`, 0.4, yPos); yPos += 0.1;
+                    }
+                    
+                    doc.line(0.4, yPos, 3.85, yPos); yPos += 0.2; 
+                    
+                    doc.setFont("helvetica", "bold");
+                    doc.text("JOB DETAILS", 0.4, yPos); yPos += 0.2;
+                    doc.setFont("helvetica", "normal");
+                    doc.text(`Desc: ${data.description}`, 0.4, yPos); yPos += 0.2;
+                    doc.text(`Units: ${data.units} | Shade: ${data.shade}`, 0.4, yPos); yPos += 0.2;
+                    doc.text(`Tech (Metal): ${data.techMetal || '-'}`, 0.4, yPos); yPos += 0.2;
+                    doc.text(`Tech (Build Up): ${data.techBuildUp || '-'}`, 0.4, yPos); yPos += 0.1;
+                    
+                    doc.line(0.4, yPos, 3.85, yPos); yPos += 0.2; 
+
+                    doc.setFont("helvetica", "bold");
+                    doc.text("LOGISTICS & STATUS", 0.4, yPos); yPos += 0.2;
+                    doc.setFont("helvetica", "normal");
+                    doc.text(`Pick Up: ${data.messengerPickUp || '-'} | Deliver: ${data.messengerDeliver || '-'}`, 0.4, yPos); yPos += 0.2;
+                    doc.text(`Date Delivered: ${data.dateDeliver || '-'}`, 0.4, yPos); yPos += 0.2;
+                    doc.text(`Job Status: ${data.status}`, 0.4, yPos); yPos += 0.1;
+
+                    doc.line(0.4, yPos, 3.85, yPos); yPos += 0.2; 
+
+                    doc.setFont("helvetica", "bold");
+                    doc.text("BILLING INFO", 0.4, yPos); yPos += 0.2;
+                    doc.setFont("helvetica", "normal");
+                    const amtPaid = data.amountPaid || 0;
+                    const balance = data.amount - amtPaid;
+                    doc.text(`Total Amount: Php ${data.amount.toLocaleString()}`, 0.4, yPos); yPos += 0.2;
+                    doc.text(`Amount Paid: Php ${amtPaid.toLocaleString()}`, 0.4, yPos); yPos += 0.2;
+                    doc.text(`Balance: Php ${balance.toLocaleString()}`, 0.4, yPos); yPos += 0.2;
+                    doc.text(`Payment Status: ${data.paymentStatus || 'Unpaid'}`, 0.4, yPos); yPos += 0.5;
+
+                    doc.setFont("helvetica", "italic");
+                    doc.text("Thank you for trusting us!", 2.125, yPos, { align: "center" });
+
+                    doc.save(`Receipt_${data.doctor.replace(/\s+/g, '_')}.pdf`);
+                };
+
+                const img = new Image();
+                img.crossOrigin = "Anonymous";
+                
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+                    
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const pixels = imageData.data;
+                    
+                    for (let i = 0; i < pixels.length; i += 4) {
+                        pixels[i] = 255 - pixels[i];         
+                        pixels[i + 1] = 255 - pixels[i + 1]; 
+                        pixels[i + 2] = 255 - pixels[i + 2]; 
+                    }
+                    ctx.putImageData(imageData, 0, 0);
+                    
+                    const invertedLogoDataUrl = canvas.toDataURL('image/jpeg');
+                    drawReceipt(invertedLogoDataUrl);
+                };
+                
+                img.onerror = function() {
+                    console.warn("Logo image not found. Proceeding without logo.");
+                    drawReceipt(null); 
+                };
+                
+                img.src = 'images/fano-logo.jpg'; 
+
+            }
+        } catch (error) {
+            console.error("Error generating PDF: ", error);
+            alert("Failed to generate receipt.");
+        }
     }
 });
 
@@ -353,18 +465,21 @@ if (editSaleForm) {
         e.preventDefault();
         
         const jobId = document.getElementById('editJobId').value;
-        const updatedStatus = document.getElementById('editStatus').value;
+        
+        // --- SMART LOGIC: Date Dictates Status ---
         let updatedDateDeliver = document.getElementById('editDateDeliver').value;
+        let derivedStatus = "In Progress";
 
-        // SMART FIX: Auto-fill Date Delivered to today if they mark it 'Delivered' but forgot to put a date!
-        if (updatedStatus === "Delivered" && (!updatedDateDeliver || updatedDateDeliver === "-")) {
-            updatedDateDeliver = new Date().toISOString().split('T')[0]; // Auto-fill Today
-        } else if (!updatedDateDeliver) {
+        // If there is a valid Date Delivered, it is Delivered. If blank, it is In Progress.
+        if (updatedDateDeliver && updatedDateDeliver.trim() !== "") {
+            derivedStatus = "Delivered";
+        } else {
             updatedDateDeliver = "-";
+            derivedStatus = "In Progress";
         }
 
         const updatedData = {
-            status: updatedStatus,
+            status: derivedStatus, // Uses our smart logic
             dueDate: document.getElementById('editDueDate').value || "-", 
             rxNumber: document.getElementById('editRxNumber').value || "-", 
             doctor: document.getElementById('editDoctor').value,
@@ -374,8 +489,8 @@ if (editSaleForm) {
             techMetal: document.getElementById('editTechMetal').value || "-",
             techBuildUp: document.getElementById('editTechBuildUp').value || "-",
             messengerPickUp: document.getElementById('editMessengerPickUp').value || "-",
-            messengerDeliver: document.getElementById('editMessengerDeliver').value || "-",
-            dateDeliver: updatedDateDeliver,
+            messengerDeliver: document.getElementById('messengerDeliver').value || "-",
+            dateDeliver: updatedDateDeliver, // Saves the date (or "-")
             amount: parseFloat(document.getElementById('editAmount').value) || 0,
             paymentStatus: document.getElementById('editPaymentStatus').value,
             amountPaid: parseFloat(document.getElementById('editAmountPaid').value) || 0,
@@ -384,7 +499,9 @@ if (editSaleForm) {
 
         try {
             await update(ref(db, `sales/${jobId}`), updatedData);
+            
             await createLog("UPDATE", `Updated job for ${updatedData.doctor}. Status: ${updatedData.status}`);
+
             editModalInstance.hide();
         } catch (error) {
             console.error("Error updating record: ", error);
