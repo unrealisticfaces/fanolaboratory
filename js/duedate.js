@@ -2,9 +2,8 @@
 
 import { auth, db } from './firebase-config.js';
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-import { ref, onValue, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+import { ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-// AUTH & LOGOUT FIX
 onAuthStateChanged(auth, (user) => {
     if (!user) window.location.href = 'index.html'; 
 });
@@ -67,7 +66,7 @@ function renderTable(jobs) {
     dueCountEl.textContent = jobs.length;
 
     if (jobs.length === 0) {
-        dueTableBody.innerHTML = `<tr><td colspan="10" class="text-center text-muted py-4">No due dates found.</td></tr>`;
+        dueTableBody.innerHTML = `<tr><td colspan="9" class="text-center text-muted py-4">No due dates found.</td></tr>`;
         return;
     }
     
@@ -88,6 +87,7 @@ function renderTable(jobs) {
             dateColorClass = "text-warning fw-bold"; 
         }
 
+        // Clean UI: No actions column
         const row = document.createElement('tr');
         row.innerHTML = `
             <td class="fw-bold"><span class="${dateColorClass}">${job.dueDate}</span></td>
@@ -99,84 +99,11 @@ function renderTable(jobs) {
             <td><span class="badge bg-secondary">${job.shade}</span></td>
             <td>${job.techMetal || '-'}</td>
             <td>${job.techBuildUp || '-'}</td>
-            <td><button class="btn btn-sm btn-primary edit-btn" data-id="${job.id}">Update</button></td>
         `;
         dueTableBody.appendChild(row);
     });
 }
 
-// --- EDIT LOGIC ---
-const editSaleForm = document.getElementById('editSaleForm');
-let editModalInstance;
-
-dueTableBody.addEventListener('click', async (e) => {
-    const target = e.target;
-    if (target.classList.contains('edit-btn')) {
-        const jobId = target.getAttribute('data-id');
-        const job = activeJobs.find(j => j.id === jobId);
-        if (job) {
-            document.getElementById('editJobId').value = jobId;
-            document.getElementById('editDateReceived').value = job.dateReceived;
-            document.getElementById('editDueDate').value = job.dueDate && job.dueDate !== "-" ? job.dueDate : "";
-            document.getElementById('editRxNumber').value = job.rxNumber && job.rxNumber !== "-" ? job.rxNumber : ""; 
-            document.getElementById('editDoctor').value = job.doctor;
-            document.getElementById('editDescription').value = job.description; 
-            document.getElementById('editUnits').value = job.units || 0; 
-            document.getElementById('editShade').value = job.shade !== "-" ? job.shade : ""; 
-            
-            document.getElementById('editTechMetal').value = job.techMetal !== "-" ? job.techMetal : "";
-            document.getElementById('editTechBuildUp').value = job.techBuildUp !== "-" ? job.techBuildUp : "";
-            document.getElementById('editMessengerPickUp').value = job.messengerPickUp !== "-" ? job.messengerPickUp : "";
-            document.getElementById('editMessengerDeliver').value = job.messengerDeliver !== "-" ? job.messengerDeliver : "";
-            document.getElementById('editDateDeliver').value = job.dateDeliver !== "-" ? job.dateDeliver : "";
-
-            document.getElementById('editAmount').value = job.amount; 
-            document.getElementById('editPaymentStatus').value = job.paymentStatus || "Unpaid"; 
-            document.getElementById('editAmountPaid').value = job.amountPaid || 0; 
-            document.getElementById('editRemarks').value = job.remarks || "";
-            
-            editModalInstance = new bootstrap.Modal(document.getElementById('editSaleModal'));
-            editModalInstance.show();
-        }
-    }
-});
-
-if (editSaleForm) {
-    editSaleForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const jobId = document.getElementById('editJobId').value;
-        let updatedDateDeliver = document.getElementById('editDateDeliver').value;
-        let derivedStatus = "In Progress";
-
-        if (updatedDateDeliver && updatedDateDeliver.trim() !== "") {
-            derivedStatus = "Delivered";
-        } else {
-            updatedDateDeliver = "-";
-        }
-
-        const updatedData = {
-            status: derivedStatus, 
-            dueDate: document.getElementById('editDueDate').value || "-", 
-            rxNumber: document.getElementById('editRxNumber').value || "-", 
-            doctor: document.getElementById('editDoctor').value,
-            techMetal: document.getElementById('editTechMetal').value || "-",
-            techBuildUp: document.getElementById('editTechBuildUp').value || "-",
-            messengerPickUp: document.getElementById('editMessengerPickUp').value || "-",
-            messengerDeliver: document.getElementById('editMessengerDeliver').value || "-",
-            dateDeliver: updatedDateDeliver, 
-            remarks: document.getElementById('editRemarks').value,
-        };
-
-        try {
-            await update(ref(db, `sales/${jobId}`), updatedData);
-            editModalInstance.hide();
-        } catch (error) {
-            console.error("Error updating: ", error);
-        }
-    });
-}
-
-// Redirect search from Dashboard Alerts
 window.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(window.location.search);
     const searchParam = urlParams.get('search');

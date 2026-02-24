@@ -4,7 +4,6 @@ import { auth, db } from './firebase-config.js';
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { ref, onValue, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-// AUTH & LOGOUT FIX
 onAuthStateChanged(auth, (user) => {
     if (!user) window.location.href = 'index.html'; 
 });
@@ -84,13 +83,14 @@ function renderTable(jobs) {
             <td>${job.techMetal || '-'}</td>
             <td>${job.techBuildUp || '-'}</td>
             <td class="text-danger small">${job.remarks || ''}</td>
-            <td><button class="btn btn-sm btn-primary edit-btn" data-id="${job.id}">Update</button></td>
+            <td>
+                <button class="btn btn-sm btn-light border text-primary edit-btn shadow-sm" data-id="${job.id}" title="Edit/Update Job">✏️ Edit</button>
+            </td>
         `;
         progressTableBody.appendChild(row);
     });
 }
 
-// --- EDIT LOGIC ---
 const editSaleForm = document.getElementById('editSaleForm');
 let editModalInstance;
 

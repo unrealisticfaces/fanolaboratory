@@ -2,7 +2,7 @@
 
 import { auth, db } from './firebase-config.js';
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-import { ref, push, set, onValue, remove, get, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+import { ref, push, set, onValue, remove, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
 let currentUserRole = 'staff'; 
 let currentUserName = 'Unknown User';
@@ -114,13 +114,13 @@ function renderTable(jobsToRender) {
             statusBadgeClass = 'bg-success text-white'; 
         }
 
+        // CLEAN UI: Removed Edit button, styled Print/Delete as subtle icons
         let actionButtons = `
-            <button class="btn btn-sm btn-secondary print-btn mb-1" data-id="${job.id}">Print</button>
-            <button class="btn btn-sm btn-primary edit-btn mb-1" data-id="${job.id}">Edit</button>
+            <button class="btn btn-sm btn-light border print-btn me-1 shadow-sm" data-id="${job.id}" title="Print Receipt">🖨️</button>
         `;
         
         if (currentUserRole === 'admin') {
-            actionButtons += `<button class="btn btn-sm btn-danger delete-btn mb-1" data-id="${job.id}">Del</button>`;
+            actionButtons += `<button class="btn btn-sm btn-light border text-danger delete-btn shadow-sm" data-id="${job.id}" title="Delete Record">🗑️</button>`;
         }
 
         const row = document.createElement('tr');
@@ -156,13 +156,11 @@ onValue(salesRef, (snapshot) => {
         allJobs.push(jobData);
     });
     
-    // SMART SORTING: Sort by Date Received (Newest First)
     allJobs.sort((a, b) => {
         const dateA = new Date(a.dateReceived || 0);
         const dateB = new Date(b.dateReceived || 0);
         if (dateB > dateA) return 1;
         if (dateB < dateA) return -1;
-        // Fallback to timestamp if dates are exactly identical
         return (b.timestamp || 0) - (a.timestamp || 0);
     });
     
@@ -250,9 +248,7 @@ if (exportBtn) {
     });
 }
 
-const editSaleForm = document.getElementById('editSaleForm');
-let editModalInstance;
-
+// Action Handlers
 salesTableBody.addEventListener('click', async (e) => {
     const target = e.target;
     const jobId = target.getAttribute('data-id');
@@ -272,39 +268,6 @@ salesTableBody.addEventListener('click', async (e) => {
             } catch (error) {
                 console.error("Error deleting record: ", error);
             }
-        }
-    }
-
-    if (target.classList.contains('edit-btn')) {
-        try {
-            const snapshot = await get(ref(db, `sales/${jobId}`));
-            if (snapshot.exists()) {
-                const data = snapshot.val();
-                
-                document.getElementById('editJobId').value = jobId;
-                document.getElementById('editDateReceived').value = data.dateReceived;
-                document.getElementById('editDueDate').value = data.dueDate && data.dueDate !== "-" ? data.dueDate : "";
-                document.getElementById('editRxNumber').value = data.rxNumber && data.rxNumber !== "-" ? data.rxNumber : ""; 
-                document.getElementById('editDoctor').value = data.doctor;
-                document.getElementById('editDescription').value = data.description;
-                document.getElementById('editUnits').value = data.units || 0;
-                document.getElementById('editShade').value = data.shade !== "-" ? data.shade : "";
-                document.getElementById('editTechMetal').value = data.techMetal !== "-" ? data.techMetal : "";
-                document.getElementById('editTechBuildUp').value = data.techBuildUp !== "-" ? data.techBuildUp : "";
-                document.getElementById('editMessengerPickUp').value = data.messengerPickUp !== "-" ? data.messengerPickUp : "";
-                document.getElementById('editMessengerDeliver').value = data.messengerDeliver !== "-" ? data.messengerDeliver : "";
-                document.getElementById('editDateDeliver').value = data.dateDeliver !== "-" ? data.dateDeliver : "";
-                document.getElementById('editAmount').value = data.amount;
-                document.getElementById('editPaymentStatus').value = data.paymentStatus || "Unpaid";
-                document.getElementById('editAmountPaid').value = data.amountPaid || 0;
-                document.getElementById('editRemarks').value = data.remarks || "";
-                
-                const modalElement = document.getElementById('editSaleModal');
-                editModalInstance = new bootstrap.Modal(modalElement);
-                editModalInstance.show();
-            }
-        } catch (error) {
-            console.error("Error fetching record: ", error);
         }
     }
 
@@ -393,47 +356,3 @@ salesTableBody.addEventListener('click', async (e) => {
         }
     }
 });
-
-if (editSaleForm) {
-    editSaleForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const jobId = document.getElementById('editJobId').value;
-        
-        let updatedDateDeliver = document.getElementById('editDateDeliver').value;
-        let derivedStatus = "In Progress";
-
-        if (updatedDateDeliver && updatedDateDeliver.trim() !== "") {
-            derivedStatus = "Delivered";
-        } else {
-            updatedDateDeliver = "-";
-            derivedStatus = "In Progress";
-        }
-
-        const updatedData = {
-            status: derivedStatus, 
-            dueDate: document.getElementById('editDueDate').value || "-", 
-            rxNumber: document.getElementById('editRxNumber').value || "-", 
-            doctor: document.getElementById('editDoctor').value,
-            description: document.getElementById('editDescription').value,
-            units: parseInt(document.getElementById('editUnits').value) || 0,
-            shade: document.getElementById('editShade').value || "-",
-            techMetal: document.getElementById('editTechMetal').value || "-",
-            techBuildUp: document.getElementById('editTechBuildUp').value || "-",
-            messengerPickUp: document.getElementById('editMessengerPickUp').value || "-",
-            messengerDeliver: document.getElementById('editMessengerDeliver').value || "-",
-            dateDeliver: updatedDateDeliver, 
-            amount: parseFloat(document.getElementById('editAmount').value) || 0,
-            paymentStatus: document.getElementById('editPaymentStatus').value,
-            amountPaid: parseFloat(document.getElementById('editAmountPaid').value) || 0,
-            remarks: document.getElementById('editRemarks').value,
-        };
-
-        try {
-            await update(ref(db, `sales/${jobId}`), updatedData);
-            await createLog("UPDATE", `Updated job for ${updatedData.doctor}. Status: ${updatedData.status}`);
-            editModalInstance.hide();
-        } catch (error) {
-            console.error("Error updating record: ", error); alert("Failed to update record.");
-        }
-    });
-}

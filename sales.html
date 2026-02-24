@@ -11,9 +11,7 @@
         .table > thead.table-dark > tr > th {
             background-color: #212529 !important; 
             color: #ffffff !important;
-            font-weight: bold;
-            border-bottom: none;
-            white-space: nowrap;
+            font-weight: bold; border-bottom: none; white-space: nowrap;
         }
         .modal-content { border: none; border-radius: 12px; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2); }
     </style>
@@ -25,13 +23,13 @@
             <a class="navbar-brand fw-bold text-white" href="dashboard.html">Fano Laboratory</a>
             <div class="collapse navbar-collapse">
                 <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                    <li class="nav-item"><a class="nav-link" href="dashboard.html">Dashboard</a></li>
-                    <li class="nav-item"><a class="nav-link active" href="sales.html">Sales & Records</a></li>
-                    <li class="nav-item"><a class="nav-link" href="inprogress.html">In Progress</a></li>
-                    <li class="nav-item"><a class="nav-link" href="duedate.html">Due Dates</a></li>
-                    <li class="nav-item"><a class="nav-link" href="queue.html">Live Dashboard</a></li>
-                    <li class="nav-item"><a class="nav-link" href="delivered.html">Delivered Log</a></li>
-                    <li class="nav-item"><a class="nav-link" href="audit.html">Audit Logs</a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="dashboard.html">Dashboard</a></li>
+                    <li class="nav-item"><a class="nav-link active text-white fw-bold" href="sales.html">All Sales</a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="inprogress.html">In Progress</a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="duedate.html">Due Dates</a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="queue.html">Live Queue</a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="delivered.html">Delivered Log</a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="audit.html">Audit Logs</a></li>
                 </ul>
                 <div class="d-flex align-items-center">
                     <button id="logoutBtn" class="btn btn-outline-light btn-sm">Logout</button>
@@ -180,109 +178,6 @@
                             </div>
                         </div>
                         <button type="submit" class="btn btn-primary w-100 fw-bold py-2 shadow-sm">Save Record</button>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="modal fade" id="editSaleModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header bg-warning border-0">
-                    <h5 class="modal-title text-dark fw-bold">Edit Lab Job</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body bg-white text-dark p-4">
-                    <form id="editSaleForm">
-                        <input type="hidden" id="editJobId">
-                        
-                        <h6 class="text-warning border-bottom pb-2 fw-bold">Job Details</h6>
-                        <div class="row mb-3">
-                            <div class="col-md-3 mb-2">
-                                <label class="form-label text-secondary small text-uppercase fw-bold">Date Rec'd</label>
-                                <input type="date" class="form-control bg-light shadow-sm" id="editDateReceived" readonly>
-                            </div>
-                            <div class="col-md-3 mb-2">
-                                <label class="form-label text-danger small text-uppercase fw-bold">Due Date <span class="text-danger">*</span></label>
-                                <input type="date" class="form-control border-danger shadow-sm" id="editDueDate" required>
-                            </div>
-                            <div class="col-md-3 mb-2">
-                                <label class="form-label text-info small text-uppercase fw-bold">RX Number</label>
-                                <input type="text" class="form-control border-info shadow-sm" id="editRxNumber">
-                            </div>
-                            <div class="col-md-3 mb-2">
-                                <label class="form-label text-secondary small text-uppercase fw-bold">Doctor <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control shadow-sm" id="editDoctor" required>
-                            </div>
-                        </div>
-                        <div class="row mb-3">
-                            <div class="col-md-6 mb-2">
-                                <label class="form-label text-secondary small text-uppercase fw-bold">Description <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control shadow-sm" id="editDescription" required>
-                            </div>
-                            <div class="col-md-3 mb-2">
-                                <label class="form-label text-secondary small text-uppercase fw-bold">Units <span class="text-danger">*</span></label>
-                                <input type="number" class="form-control shadow-sm" id="editUnits" required>
-                            </div>
-                            <div class="col-md-3 mb-2">
-                                <label class="form-label text-secondary small text-uppercase fw-bold">Shade</label>
-                                <input type="text" class="form-control shadow-sm" id="editShade">
-                            </div>
-                        </div>
-
-                        <h6 class="text-danger border-bottom pb-2 mt-4 fw-bold">Remarks / Adjustments</h6>
-                        <div class="row mb-3">
-                            <div class="col-md-12 mb-2">
-                                <textarea class="form-control border-danger shadow-sm" id="editRemarks" rows="2" placeholder="e.g. Returned for shade adjustment..."></textarea>
-                            </div>
-                        </div>
-
-                        <h6 class="text-warning border-bottom pb-2 mt-4 fw-bold">Personnel & Logistics</h6>
-                        <div class="row mb-3">
-                            <div class="col-md-6 mb-2">
-                                <label class="form-label text-secondary small text-uppercase fw-bold">Tech (Metal)</label>
-                                <input type="text" class="form-control shadow-sm" id="editTechMetal">
-                            </div>
-                            <div class="col-md-6 mb-2">
-                                <label class="form-label text-secondary small text-uppercase fw-bold">Tech (Build)</label>
-                                <input type="text" class="form-control shadow-sm" id="editTechBuildUp">
-                            </div>
-                            <div class="col-md-4 mb-2">
-                                <label class="form-label text-secondary small text-uppercase fw-bold">Messenger (Pick Up)</label>
-                                <input type="text" class="form-control shadow-sm" id="editMessengerPickUp">
-                            </div>
-                            <div class="col-md-4 mb-2">
-                                <label class="form-label text-secondary small text-uppercase fw-bold">Messenger (Deliver)</label>
-                                <input type="text" class="form-control shadow-sm" id="editMessengerDeliver">
-                            </div>
-                            <div class="col-md-4 mb-2">
-                                <label class="form-label text-success small text-uppercase fw-bold">Date Delivered</label>
-                                <input type="date" class="form-control border-success shadow-sm" id="editDateDeliver">
-                                <small class="text-muted" style="font-size: 0.7rem;">Filling this automatically marks as "Delivered"</small>
-                            </div>
-                        </div>
-
-                        <h6 class="text-warning border-bottom pb-2 mt-4 fw-bold">Billing Details</h6>
-                        <div class="row mb-4">
-                            <div class="col-md-4 mb-2">
-                                <label class="form-label text-secondary small text-uppercase fw-bold">Total Amount (₱)</label>
-                                <input type="number" step="0.01" class="form-control shadow-sm" id="editAmount" required>
-                            </div>
-                            <div class="col-md-4 mb-2">
-                                <label class="form-label text-secondary small text-uppercase fw-bold">Payment Status</label>
-                                <select class="form-select shadow-sm" id="editPaymentStatus">
-                                    <option value="Unpaid">Unpaid</option>
-                                    <option value="Downpayment">Downpayment</option>
-                                    <option value="Paid">Paid in Full</option>
-                                </select>
-                            </div>
-                            <div class="col-md-4 mb-2">
-                                <label class="form-label text-secondary small text-uppercase fw-bold">Amount Paid (₱)</label>
-                                <input type="number" step="0.01" class="form-control shadow-sm" id="editAmountPaid">
-                            </div>
-                        </div>
-                        <button type="submit" class="btn btn-warning w-100 text-dark fw-bold py-2 shadow-sm">Update Record</button>
                     </form>
                 </div>
             </div>
