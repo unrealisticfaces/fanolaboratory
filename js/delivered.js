@@ -22,23 +22,16 @@ const searchInput = document.getElementById('searchInput');
 const deliveredTableBody = document.getElementById('deliveredTableBody');
 const deliveredCountEl = document.getElementById('deliveredCount');
 
-let allDeliveredJobs = [];
-
-// SMART FIX: Set Date Picker to Exact Local Date on Load
-const d = new Date();
-const localYear = d.getFullYear();
-const localMonth = String(d.getMonth() + 1).padStart(2, '0');
-const localDay = String(d.getDate()).padStart(2, '0');
-customDateFilter.value = `${localYear}-${localMonth}-${localDay}`; // e.g. 2024-05-18
+let deliveredJobs = [];
 
 const salesRef = ref(db, 'sales');
 onValue(salesRef, (snapshot) => {
-    allDeliveredJobs = []; 
+    deliveredJobs = []; 
     snapshot.forEach((childSnapshot) => {
         const job = childSnapshot.val();
         if (job.status === "Delivered") {
             job.id = childSnapshot.key; 
-            allDeliveredJobs.push(job);
+            deliveredJobs.push(job);
         }
     });
     applyFilters();
@@ -51,23 +44,19 @@ function applyFilters() {
     const customDate = customDateFilter.value;
     const searchTerm = searchInput.value.toLowerCase();
 
-    // STRICT MATCH: Only show jobs delivered on the selected date
-    let filtered = allDeliveredJobs.filter(job => {
-        if (!job.dateDeliver || job.dateDeliver === "-") return false;
-        return job.dateDeliver === customDate;
-    });
+    let filtered = deliveredJobs.filter(job => {
+        if (customDate && job.dateDeliver !== customDate) return false;
 
-    // Handle Search Bar Filtering
-    if (searchTerm) {
-        filtered = filtered.filter(job => {
+        if (searchTerm) {
             return (
                 job.doctor.toLowerCase().includes(searchTerm) || 
                 (job.rxNumber && job.rxNumber.toLowerCase().includes(searchTerm)) ||
                 job.description.toLowerCase().includes(searchTerm) ||
                 (job.messengerDeliver && job.messengerDeliver.toLowerCase().includes(searchTerm))
             );
-        });
-    }
+        }
+        return true;
+    });
 
     filtered.sort((a, b) => new Date(b.dateDeliver) - new Date(a.dateDeliver));
     renderTable(filtered);
@@ -75,28 +64,25 @@ function applyFilters() {
 
 function renderTable(jobs) {
     deliveredTableBody.innerHTML = ''; 
-    let totalItems = 0;
+    deliveredCountEl.textContent = jobs.length;
 
     if (jobs.length === 0) {
-        deliveredTableBody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-4">No items were delivered on this date.</td></tr>`;
-        deliveredCountEl.textContent = 0;
+        deliveredTableBody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-4">No delivered items found.</td></tr>`;
         return;
     }
     
     jobs.forEach((job) => {
-        totalItems++; 
         const row = document.createElement('tr');
+        // FIXED: Removed text-dark from the Amount row at the bottom and replaced with text-body-emphasis
         row.innerHTML = `
-            <td class="fw-bold text-success">${job.dateDeliver}</td>
+            <td class="fw-bold text-success-emphasis">${job.dateDeliver}</td>
             <td class="fw-bold">${job.doctor}</td>
-            <td class="text-info fw-bold">${job.rxNumber || '-'}</td>
+            <td class="text-info-emphasis fw-bold">${job.rxNumber || '-'}</td>
             <td>${job.description}</td>
             <td>${job.units}</td>
-            <td class="fw-bold text-secondary">${job.messengerDeliver || 'Unassigned'}</td>
-            <td class="fw-bold text-dark">₱${(job.amountPaid || 0).toLocaleString()}</td>
+            <td>${job.messengerDeliver || '-'}</td>
+            <td class="fw-bold text-body-emphasis">₱${(job.amountPaid || 0).toLocaleString()}</td>
         `;
         deliveredTableBody.appendChild(row);
     });
-    
-    deliveredCountEl.textContent = totalItems;
 }

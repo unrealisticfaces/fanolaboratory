@@ -74,29 +74,30 @@ function renderTable(jobs) {
     todayObj.setHours(0, 0, 0, 0);
 
     jobs.forEach((job) => {
-        let dateColorClass = "text-dark";
+        // FIXED: Uses text-body instead of text-dark so it adapts to Light/Dark Mode
+        let dateColorClass = "text-body";
         
         const dueObj = new Date(job.dueDate);
         const diffDays = Math.ceil((dueObj - todayObj) / (1000 * 3600 * 24));
 
         if (diffDays < 0) {
-            dateColorClass = "text-white bg-danger px-2 py-1 rounded"; 
+            // FIXED: Uses text-bg-danger for perfect contrast
+            dateColorClass = "badge text-bg-danger px-2 py-1 shadow-sm"; 
         } else if (diffDays === 0) {
-            dateColorClass = "text-danger fw-bold"; 
+            dateColorClass = "text-danger-emphasis fw-bold"; 
         } else if (diffDays === 1) {
-            dateColorClass = "text-warning fw-bold"; 
+            dateColorClass = "text-warning-emphasis fw-bold"; 
         }
 
-        // Clean UI: No actions column
         const row = document.createElement('tr');
         row.innerHTML = `
             <td class="fw-bold"><span class="${dateColorClass}">${job.dueDate}</span></td>
             <td>${job.dateReceived}</td>
-            <td class="text-info fw-bold">${job.rxNumber || '-'}</td>
+            <td class="text-info-emphasis fw-bold">${job.rxNumber || '-'}</td>
             <td class="fw-bold">${job.doctor}</td>
             <td>${job.description}</td>
             <td>${job.units}</td>
-            <td><span class="badge bg-secondary">${job.shade}</span></td>
+            <td><span class="badge text-bg-secondary">${job.shade}</span></td>
             <td>${job.techMetal || '-'}</td>
             <td>${job.techBuildUp || '-'}</td>
         `;

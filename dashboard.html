@@ -1,115 +1,99 @@
 <!DOCTYPE html>
-<html lang="en" data-bs-theme="dark">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - Fano Laboratory</title>
+    <script>
+        const savedTheme = localStorage.getItem('theme') || 'dark';
+        document.documentElement.setAttribute('data-bs-theme', savedTheme);
+    </script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        /* Glassmorphism Card Style for Dark Mode */
-        .dash-card {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 15px;
-            color: white;
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-        .dash-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4);
-        }
-        /* Notification Dropdown Customization */
-        .dropdown-menu-dark .dropdown-item:hover {
-            background-color: rgba(255,255,255,0.1);
-        }
+        body { overflow-x: hidden; }
+        .sidebar { width: 250px; height: 100vh; position: fixed; top: 0; left: 0; background-color: #0f172a !important; border-right: 1px solid rgba(255, 255, 255, 0.1); z-index: 1000; transition: transform 0.3s ease; }
+        .sidebar.collapsed { transform: translateX(-250px); }
+        .main-content { margin-left: 250px; min-height: 100vh; display: flex; flex-direction: column; transition: margin-left 0.3s ease; }
+        .main-content.expanded { margin-left: 0; }
+        .sidebar .nav-link { color: #94a3b8; border-radius: 8px; margin-bottom: 5px; padding: 10px 15px; transition: all 0.2s ease; }
+        .sidebar .nav-link:hover { background-color: rgba(255, 255, 255, 0.05); color: #ffffff; }
+        .sidebar .nav-link.active { background-color: #00d1ff; color: #000 !important; font-weight: bold; box-shadow: 0 4px 12px rgba(0, 209, 255, 0.3); }
+        .top-header { background-color: var(--bs-body-bg); border-bottom: 1px solid var(--bs-border-color); height: 60px; position: sticky; top: 0; z-index: 999; }
+        .card { border-radius: 12px; transition: transform 0.2s ease, box-shadow 0.2s ease; }
+        .card:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1); }
     </style>
 </head>
-<body class="bg-dark text-white">
+<body>
 
-    <nav class="navbar navbar-expand-lg navbar-dark bg-black border-bottom border-secondary">
-        <div class="container-fluid">
-            <a class="navbar-brand fw-bold" href="dashboard.html">Fano Laboratory</a>
-            <div class="collapse navbar-collapse">
-                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                    <li class="nav-item"><a class="nav-link active" href="dashboard.html">Dashboard</a></li>
-                    <li class="nav-item"><a class="nav-link" href="sales.html">Sales & Records</a></li>
-                    <li class="nav-item"><a class="nav-link" href="inprogress.html">In Progress</a></li>
-                    <li class="nav-item"><a class="nav-link" href="duedate.html">Due Dates</a></li>
-                    <li class="nav-item"><a class="nav-link" href="queue.html">Live Queue</a></li>
-                    <li class="nav-item"><a class="nav-link" href="delivered.html">Delivered Log</a></li>
-                    <li class="nav-item"><a class="nav-link" href="audit.html">Audit Logs</a></li>
-                </ul>
-                <div class="d-flex align-items-center">
-                    <span id="welcomeMessage" class="me-3 text-white fw-bold"></span>
-                    
-                    <div class="dropdown me-4">
-                        <button class="btn btn-outline-warning btn-sm dropdown-toggle position-relative" type="button" id="notificationDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                            🔔 Alerts
-                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="notificationCount" style="display: none;">0</span>
-                        </button>
-                        <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end shadow-lg" aria-labelledby="notificationDropdown" id="notificationList" style="min-width: 320px;">
-                            <li><span class="dropdown-item text-muted text-center py-3">No urgent jobs</span></li>
-                        </ul>
-                    </div>
-
-                    <button id="logoutBtn" class="btn btn-outline-light btn-sm">Logout</button>
-                </div>
-            </div>
-        </div>
-    </nav>
-
-    <div class="container-fluid mt-4 px-4">
-        <h2 class="mb-4">Overview & Analytics</h2>
+    <div class="sidebar d-flex flex-column p-3" id="sidebar" data-bs-theme="dark">
+        <a href="dashboard.html" class="text-white text-decoration-none mb-4 mt-2 px-2 d-flex align-items-center">
+            <span class="fs-4 fw-bold" style="color: #00d1ff;">Fano Lab</span>
+        </a>
+        <ul class="nav nav-pills flex-column mb-auto">
+            <li class="nav-item"><a class="nav-link active" href="dashboard.html">📊 Dashboard</a></li>
+            <li class="nav-item"><a class="nav-link" href="sales.html">📁 All Sales</a></li>
+            <li class="nav-item"><a class="nav-link" href="inprogress.html">⚙️ In Progress</a></li>
+            <li class="nav-item"><a class="nav-link" href="duedate.html">⏳ Due Dates</a></li>
+            <li class="nav-item"><a class="nav-link" href="delivered.html">✅ Delivered Log</a></li>
+            <li class="nav-item"><a class="nav-link" href="audit.html">🔒 Audit Logs</a></li>
+        </ul>
+        <hr class="text-white-50">
         
-        <div class="row g-3 mt-2">
-            <div class="col-xl col-md-4 col-sm-6">
-                <div class="card dash-card p-3 shadow-lg">
-                    <div class="text-white-50 small text-uppercase fw-bold mb-1">Sales Today</div>
-                    <h3 class="card-text text-success mb-0" id="salesToday">₱0</h3>
-                </div>
+        <div>
+            <a href="queue.html" class="nav-link text-warning fw-bold py-2 px-3 mb-2 rounded text-center d-block text-decoration-none" style="background: rgba(255, 193, 7, 0.1); border: 1px solid rgba(255,193,7,0.3);">🖥️ Live Queue</a>
+            <button id="logoutBtn" class="btn btn-outline-danger w-100 fw-bold shadow-sm">🚪 Logout</button>
+        </div>
+    </div>
+
+    <div class="main-content" id="mainContent">
+        <div class="top-header px-4 d-flex justify-content-between align-items-center shadow-sm">
+            <div class="d-flex align-items-center">
+                <button id="sidebarToggle" class="btn btn-link text-body fs-4 text-decoration-none p-0 me-3" title="Toggle Menu">☰</button>
+                <span id="welcomeMessage" class="small fw-bold text-muted d-none d-md-inline"></span>
             </div>
-            <div class="col-xl col-md-4 col-sm-6">
-                <div class="card dash-card p-3 shadow-lg">
-                    <div class="text-white-50 small text-uppercase fw-bold mb-1">Sales This Month</div>
-                    <h3 class="card-text text-info mb-0" id="salesMonth">₱0</h3>
-                </div>
-            </div>
-            <div class="col-xl col-md-4 col-sm-6">
-                <div class="card dash-card p-3 shadow-lg">
-                    <div class="text-white-50 small text-uppercase fw-bold mb-1">Pending Payments</div>
-                    <h3 class="card-text text-danger mb-0" id="pendingPayments">₱0</h3>
-                </div>
-            </div>
-            <div class="col-xl col-md-6 col-sm-6">
-                <div class="card dash-card p-3 shadow-lg">
-                    <div class="text-white-50 small text-uppercase fw-bold mb-1">Jobs in Progress</div>
-                    <h3 class="card-text text-warning mb-0" id="jobsInProgress">0</h3>
-                </div>
-            </div>
-            <div class="col-xl col-md-6 col-sm-6">
-                <div class="card dash-card p-3 shadow-lg">
-                    <div class="text-white-50 small text-uppercase fw-bold mb-1">Delivered Jobs</div>
-                    <h3 class="card-text text-success mb-0" id="jobsDelivered">0</h3>
+            
+            <div class="d-flex align-items-center">
+                <button id="themeToggleBtn" class="btn btn-sm btn-outline-secondary border-0 fs-5 me-3" title="Toggle Theme">☀️</button>
+                <div class="dropdown">
+                    <button class="btn btn-warning text-dark fw-bold btn-sm dropdown-toggle position-relative shadow-sm" type="button" id="notificationDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                        🔔 Alerts
+                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="notificationCount" style="display: none;">0</span>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow-lg" aria-labelledby="notificationDropdown" id="notificationList" style="min-width: 320px;">
+                        <li><span class="dropdown-item text-muted text-center py-3">No urgent jobs</span></li>
+                    </ul>
                 </div>
             </div>
         </div>
 
-        <div class="row mt-4 mb-5">
-            <div class="col-12">
-                <div class="card dash-card p-4 shadow-lg">
-                    <h4 class="text-white mb-4">Daily Delivered Items (Last 7 Days)</h4>
-                    <div style="position: relative; height: 250px; width: 100%;">
-                        <canvas id="statusSalesChart"></canvas>
+        <div class="container-fluid mt-4 px-4 pb-5">
+            <h2 class="mb-4 fw-bold">Overview & Analytics</h2>
+            
+            <div class="row g-3 mt-2">
+                <div class="col-xl col-md-4 col-sm-6"><div class="card p-3 shadow-sm bg-body-tertiary"><div class="text-muted small text-uppercase fw-bold mb-1">Sales Today</div><h3 class="card-text text-success mb-0" id="salesToday">₱0</h3></div></div>
+                <div class="col-xl col-md-4 col-sm-6"><div class="card p-3 shadow-sm bg-body-tertiary"><div class="text-muted small text-uppercase fw-bold mb-1">Sales This Month</div><h3 class="card-text text-info mb-0" id="salesMonth">₱0</h3></div></div>
+                <div class="col-xl col-md-4 col-sm-6"><div class="card p-3 shadow-sm bg-body-tertiary"><div class="text-muted small text-uppercase fw-bold mb-1">Pending Payments</div><h3 class="card-text text-danger mb-0" id="pendingPayments">₱0</h3></div></div>
+                <div class="col-xl col-md-6 col-sm-6"><div class="card p-3 shadow-sm bg-body-tertiary"><div class="text-muted small text-uppercase fw-bold mb-1">Jobs in Progress</div><h3 class="card-text text-warning mb-0" id="jobsInProgress">0</h3></div></div>
+                <div class="col-xl col-md-6 col-sm-6"><div class="card p-3 shadow-sm bg-body-tertiary"><div class="text-muted small text-uppercase fw-bold mb-1">Delivered Jobs</div><h3 class="card-text text-success mb-0" id="jobsDelivered">0</h3></div></div>
+            </div>
+
+            <div class="row mt-4 mb-5">
+                <div class="col-12">
+                    <div class="card p-4 shadow-sm bg-body-tertiary">
+                        <h4 class="mb-4">Daily Delivered Items (Last 7 Days)</h4>
+                        <div style="position: relative; height: 250px; width: 100%;">
+                            <canvas id="statusSalesChart"></canvas>
+                        </div>
                     </div>
                 </div>
-            </div>
-        </div> 
+            </div> 
+        </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script type="module" src="js/firebase-config.js"></script>
+    <script type="module" src="js/global.js"></script>
     <script type="module" src="js/dashboard.js"></script>
 </body>
 </html>

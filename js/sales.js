@@ -2,7 +2,7 @@
 
 import { auth, db } from './firebase-config.js';
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-import { ref, push, set, onValue, remove, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+import { ref, push, set, onValue, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
 let currentUserRole = 'staff'; 
 let currentUserName = 'Unknown User';
@@ -13,17 +13,11 @@ onAuthStateChanged(auth, (user) => {
     } else {
         currentUserRole = localStorage.getItem('userRole') || 'staff';
         currentUserName = localStorage.getItem('userName') || user.email;
+        
+        const welcomeMessage = document.getElementById('welcomeMessage');
+        if(welcomeMessage) welcomeMessage.textContent = `Welcome, ${currentUserName}`;
     }
 });
-
-const logoutBtn = document.getElementById('logoutBtn');
-if (logoutBtn) {
-    logoutBtn.addEventListener('click', async () => {
-        await signOut(auth);
-        localStorage.clear();
-        window.location.href = 'index.html';
-    });
-}
 
 async function createLog(action, details) {
     try {
@@ -114,14 +108,10 @@ function renderTable(jobsToRender) {
             statusBadgeClass = 'bg-success text-white'; 
         }
 
-        // CLEAN UI: Removed Edit button, styled Print/Delete as subtle icons
+        // PURE READ-ONLY ACTION - ONLY PRINT BUTTON REMAINS
         let actionButtons = `
-            <button class="btn btn-sm btn-light border print-btn me-1 shadow-sm" data-id="${job.id}" title="Print Receipt">🖨️</button>
+            <button class="btn btn-sm btn-light border print-btn shadow-sm" data-id="${job.id}" title="Print Receipt">🖨️ Print</button>
         `;
-        
-        if (currentUserRole === 'admin') {
-            actionButtons += `<button class="btn btn-sm btn-light border text-danger delete-btn shadow-sm" data-id="${job.id}" title="Delete Record">🗑️</button>`;
-        }
 
         const row = document.createElement('tr');
         row.innerHTML = `
@@ -248,28 +238,11 @@ if (exportBtn) {
     });
 }
 
-// Action Handlers
+// Click Listeners for Print ONLY
 salesTableBody.addEventListener('click', async (e) => {
     const target = e.target;
     const jobId = target.getAttribute('data-id');
     if (!jobId) return;
-
-    if (target.classList.contains('delete-btn')) {
-        if (currentUserRole !== 'admin') {
-            alert("You do not have permission to delete records.");
-            return;
-        }
-        if (confirm("Are you sure you want to delete this lab job?")) {
-            try {
-                const snap = await get(ref(db, `sales/${jobId}`));
-                const data = snap.val();
-                await remove(ref(db, `sales/${jobId}`));
-                await createLog("DELETE", `Deleted job for ${data.doctor} (${data.description})`);
-            } catch (error) {
-                console.error("Error deleting record: ", error);
-            }
-        }
-    }
 
     if (target.classList.contains('print-btn')) {
         try {

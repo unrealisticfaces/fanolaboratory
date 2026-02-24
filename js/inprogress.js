@@ -82,7 +82,7 @@ function renderTable(jobs) {
             <td><span class="badge bg-secondary">${job.shade}</span></td>
             <td>${job.techMetal || '-'}</td>
             <td>${job.techBuildUp || '-'}</td>
-            <td class="text-danger small">${job.remarks || ''}</td>
+            <td class="small fw-bold text-danger-emphasis" style="max-width: 150px; white-space: normal;">${job.remarks || ''}</td>
             <td>
                 <button class="btn btn-sm btn-light border text-primary edit-btn shadow-sm" data-id="${job.id}" title="Edit/Update Job">✏️ Edit</button>
             </td>
