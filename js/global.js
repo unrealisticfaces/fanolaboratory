@@ -4,15 +4,39 @@ import { auth, db } from './firebase-config.js';
 import { signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-// --- 1. COLLAPSIBLE SIDEBAR LOGIC (Gemini Style) ---
+// --- 1. COLLAPSIBLE SIDEBAR LOGIC (Responsive Mobile & Desktop) ---
 const sidebarToggle = document.getElementById('sidebarToggle');
 const sidebar = document.getElementById('sidebar');
 const mainContent = document.getElementById('mainContent');
+const sidebarOverlay = document.getElementById('sidebarOverlay');
 
 if (sidebarToggle && sidebar && mainContent) {
     sidebarToggle.addEventListener('click', () => {
-        sidebar.classList.toggle('collapsed');
-        mainContent.classList.toggle('expanded');
+        if (window.innerWidth <= 768) {
+            // MOBILE: Slide sidebar in and show dark overlay
+            sidebar.classList.toggle('mobile-open');
+            if (sidebarOverlay) sidebarOverlay.classList.toggle('show');
+        } else {
+            // DESKTOP: Collapse sidebar and stretch main content
+            sidebar.classList.toggle('collapsed');
+            mainContent.classList.toggle('expanded');
+        }
+    });
+
+    // MOBILE: Close sidebar if user taps the dark overlay background
+    if (sidebarOverlay) {
+        sidebarOverlay.addEventListener('click', () => {
+            sidebar.classList.remove('mobile-open');
+            sidebarOverlay.classList.remove('show');
+        });
+    }
+
+    // Auto-fix layout if someone resizes the browser window
+    window.addEventListener('resize', () => {
+        if (window.innerWidth > 768) {
+            sidebar.classList.remove('mobile-open');
+            if (sidebarOverlay) sidebarOverlay.classList.remove('show');
+        }
     });
 }
 
@@ -102,8 +126,8 @@ onValue(salesRef, (snapshot) => {
                                 <strong>${uJob.doctor} ${rxDisplay}</strong>
                                 <span class="badge ${badgeColor}">${labelText}</span>
                             </div>
-                            <small class="text-muted d-block">${uJob.desc}</small>
-                            <small class="text-info" style="font-size: 0.75rem;">Due: ${uJob.dueDate}</small>
+                            <small class="text-body-secondary d-block">${uJob.desc}</small>
+                            <small class="text-info-emphasis" style="font-size: 0.75rem;">Due: ${uJob.dueDate}</small>
                         </a>
                     </li>
                 `;
