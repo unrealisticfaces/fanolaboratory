@@ -1,21 +1,13 @@
 // js/inprogress.js
 
 import { auth, db } from './firebase-config.js';
-import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { ref, onValue, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
+// --- 1. AUTH CHECK ---
 onAuthStateChanged(auth, (user) => {
     if (!user) window.location.href = 'index.html'; 
 });
-
-const logoutBtn = document.getElementById('logoutBtn');
-if (logoutBtn) {
-    logoutBtn.addEventListener('click', async () => {
-        await signOut(auth);
-        localStorage.clear();
-        window.location.href = 'index.html';
-    });
-}
 
 const customDateFilter = document.getElementById('customDateFilter');
 const searchInput = document.getElementById('searchInput');
@@ -24,6 +16,7 @@ const progressCountEl = document.getElementById('progressCount');
 
 let inProgressJobs = [];
 
+// --- 2. FETCH ACTIVE JOBS ---
 const salesRef = ref(db, 'sales');
 onValue(salesRef, (snapshot) => {
     inProgressJobs = []; 
@@ -61,6 +54,7 @@ function applyFilters() {
     renderTable(filtered);
 }
 
+// --- 3. RENDER TABLE ---
 function renderTable(jobs) {
     progressTableBody.innerHTML = ''; 
     progressCountEl.textContent = jobs.length;
@@ -74,23 +68,24 @@ function renderTable(jobs) {
         const row = document.createElement('tr');
         row.innerHTML = `
             <td class="fw-bold">${job.dateReceived}</td>
-            <td class="fw-bold text-danger">${job.dueDate || '-'}</td>
-            <td class="text-info fw-bold">${job.rxNumber || '-'}</td>
+            <td class="fw-bold text-danger-emphasis">${job.dueDate || '-'}</td>
+            <td class="text-info-emphasis fw-bold">${job.rxNumber || '-'}</td>
             <td class="fw-bold">${job.doctor}</td>
             <td>${job.description}</td>
             <td>${job.units}</td>
-            <td><span class="badge bg-secondary">${job.shade}</span></td>
+            <td><span class="badge text-bg-secondary">${job.shade}</span></td>
             <td>${job.techMetal || '-'}</td>
             <td>${job.techBuildUp || '-'}</td>
             <td class="small fw-bold text-danger-emphasis" style="max-width: 150px; white-space: normal;">${job.remarks || ''}</td>
             <td>
-                <button class="btn btn-sm btn-light border text-primary edit-btn shadow-sm" data-id="${job.id}" title="Edit/Update Job">✏️ Edit</button>
+                <button class="btn btn-sm btn-outline-secondary edit-btn shadow-sm" data-id="${job.id}" title="Edit/Update Job">✏️ Edit</button>
             </td>
         `;
         progressTableBody.appendChild(row);
     });
 }
 
+// --- 4. POPULATE EDIT MODAL ---
 const editSaleForm = document.getElementById('editSaleForm');
 let editModalInstance;
 
@@ -115,10 +110,14 @@ progressTableBody.addEventListener('click', async (e) => {
             document.getElementById('editMessengerDeliver').value = job.messengerDeliver !== "-" ? job.messengerDeliver : "";
             document.getElementById('editDateDeliver').value = job.dateDeliver !== "-" ? job.dateDeliver : "";
 
+            // Needed to calculate billing data for the Email Receipt
             document.getElementById('editAmount').value = job.amount; 
             document.getElementById('editPaymentStatus').value = job.paymentStatus || "Unpaid"; 
             document.getElementById('editAmountPaid').value = job.amountPaid || 0; 
             document.getElementById('editRemarks').value = job.remarks || "";
+            
+            // Clear the email field every time the modal opens
+            document.getElementById('editDoctorEmail').value = ""; 
             
             editModalInstance = new bootstrap.Modal(document.getElementById('editSaleModal'));
             editModalInstance.show();
@@ -126,13 +125,20 @@ progressTableBody.addEventListener('click', async (e) => {
     }
 });
 
+// --- 5. UPDATE FIREBASE & SEND EMAILJS RECEIPT ---
 if (editSaleForm) {
     editSaleForm.addEventListener('submit', async (e) => {
         e.preventDefault();
+        
+        const saveBtn = document.getElementById('saveUpdateBtn');
+        saveBtn.innerText = "Saving & Sending..."; // Visual feedback
+        saveBtn.disabled = true;
+
         const jobId = document.getElementById('editJobId').value;
         let updatedDateDeliver = document.getElementById('editDateDeliver').value;
         let derivedStatus = "In Progress";
 
+        // Auto-mark as delivered if a delivery date is provided
         if (updatedDateDeliver && updatedDateDeliver.trim() !== "") {
             derivedStatus = "Delivered";
         } else {
@@ -144,6 +150,7 @@ if (editSaleForm) {
             dueDate: document.getElementById('editDueDate').value || "-", 
             rxNumber: document.getElementById('editRxNumber').value || "-", 
             doctor: document.getElementById('editDoctor').value,
+            description: document.getElementById('editDescription').value,
             techMetal: document.getElementById('editTechMetal').value || "-",
             techBuildUp: document.getElementById('editTechBuildUp').value || "-",
             messengerPickUp: document.getElementById('editMessengerPickUp').value || "-",
@@ -153,10 +160,49 @@ if (editSaleForm) {
         };
 
         try {
+            // A. UPDATE FIREBASE FIRST
             await update(ref(db, `sales/${jobId}`), updatedData);
+
+            // B. GRAB DATA FOR EMAIL
+            const doctorEmail = document.getElementById('editDoctorEmail').value.trim();
+            const totalAmount = parseFloat(document.getElementById('editAmount').value) || 0;
+            const amountPaid = parseFloat(document.getElementById('editAmountPaid').value) || 0;
+            const balance = totalAmount - amountPaid;
+
+            // C. TRIGGER EMAILJS IF APPLICABLE
+            if (derivedStatus === "Delivered" && doctorEmail !== "") {
+                const templateParams = {
+                    to_email: doctorEmail,
+                    doctor_name: updatedData.doctor,
+                    rx_number: updatedData.rxNumber,
+                    description: updatedData.description,
+                    date_delivered: updatedData.dateDeliver,
+                    total_amount: totalAmount.toLocaleString(),
+                    balance: balance.toLocaleString()
+                };
+
+                // 🚨 IMPORTANT: Replace with your actual Service ID and Template ID 🚨
+                emailjs.send('service_fkrvq76', 'template_ipgfz9o', templateParams)
+                    .then(function(response) {
+                       console.log('Email sent successfully!', response.status, response.text);
+                       alert("Job marked Delivered and Receipt Email sent to Doctor!");
+                    }, function(error) {
+                       console.error('Email Failed...', error);
+                       alert("Job saved, but the email failed to send. Check console for details.");
+                    });
+            } else {
+               // Normal success message if no email was sent
+               alert("Job updated successfully!");
+            }
+
             editModalInstance.hide();
         } catch (error) {
             console.error("Error updating: ", error);
+            alert("Failed to update record.");
+        } finally {
+            // Reset button state
+            saveBtn.innerText = "Update Record";
+            saveBtn.disabled = false;
         }
     });
 }

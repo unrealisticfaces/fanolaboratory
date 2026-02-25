@@ -8,7 +8,9 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body { overflow-x: hidden; }
-        .sidebar { width: 250px; height: 100vh; position: fixed; top: 0; left: 0; background-color: #0f172a !important; border-right: 1px solid rgba(255, 255, 255, 0.1); z-index: 1040; transition: transform 0.3s ease; }
+        .sidebar { width: 250px; height: 100%; position: fixed; top: 0; left: 0; bottom: 0; background-color: #0f172a !important; border-right: 1px solid rgba(255, 255, 255, 0.1); z-index: 1040; transition: transform 0.3s ease; overflow-y: auto !important; -webkit-overflow-scrolling: touch; }
+        .sidebar::-webkit-scrollbar { display: none; }
+        .sidebar { -ms-overflow-style: none; scrollbar-width: none; }
         .sidebar.collapsed { transform: translateX(-250px); }
         .main-content { margin-left: 250px; min-height: 100vh; display: flex; flex-direction: column; transition: margin-left 0.3s ease; }
         .main-content.expanded { margin-left: 0; }
@@ -16,10 +18,8 @@
         .sidebar .nav-link:hover { background-color: rgba(255, 255, 255, 0.05); color: #ffffff; }
         .sidebar .nav-link.active { background-color: #00d1ff; color: #000 !important; font-weight: bold; box-shadow: 0 4px 12px rgba(0, 209, 255, 0.3); }
         .top-header { background-color: var(--bs-body-bg); border-bottom: 1px solid var(--bs-border-color); height: 60px; position: sticky; top: 0; z-index: 999; }
-        
         #sidebarOverlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); z-index: 1030; display: none; opacity: 0; transition: opacity 0.3s ease; }
         #sidebarOverlay.show { display: block; opacity: 1; }
-        
         @media (max-width: 768px) {
             .sidebar { transform: translateX(-250px); }
             .sidebar.mobile-open { transform: translateX(0); box-shadow: 4px 0 15px rgba(0,0,0,0.5); }
@@ -36,7 +36,7 @@
 
     <div class="sidebar d-flex flex-column p-3" id="sidebar" data-bs-theme="dark">
         <a href="dashboard.html" class="text-white text-decoration-none mb-4 mt-2 px-2 d-flex align-items-center">
-            <span class="fs-4 fw-bold" style="color: #00d1ff;">Fano Lab</span>
+            <span class="fs-4 fw-bold" style="color: #00d1ff;">Menu</span>
         </a>
         <ul class="nav nav-pills flex-column mb-auto">
             <li class="nav-item"><a class="nav-link" href="dashboard.html">📊 Dashboard</a></li>
@@ -49,7 +49,7 @@
         <hr class="text-white-50">
         <div>
             <a href="queue.html" class="nav-link text-warning fw-bold py-2 px-3 mb-2 rounded text-center d-block text-decoration-none" style="background: rgba(255, 193, 7, 0.1); border: 1px solid rgba(255,193,7,0.3);">🖥️ Live Queue</a>
-            <button id="logoutBtn" class="btn btn-outline-danger w-100 fw-bold shadow-sm">🚪 Logout</button>
+            <button id="logoutBtn" class="btn btn-outline-danger w-100 fw-bold shadow-sm">Logout</button>
         </div>
     </div>
 
