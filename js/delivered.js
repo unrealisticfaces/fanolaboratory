@@ -2,20 +2,11 @@
 
 import { auth, db } from './firebase-config.js';
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-import { ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+import { ref, onValue, query, orderByChild, equalTo } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
 onAuthStateChanged(auth, (user) => {
     if (!user) window.location.href = 'index.html'; 
 });
-
-const logoutBtn = document.getElementById('logoutBtn');
-if (logoutBtn) {
-    logoutBtn.addEventListener('click', async () => {
-        await signOut(auth);
-        localStorage.clear();
-        window.location.href = 'index.html';
-    });
-}
 
 const customDateFilter = document.getElementById('customDateFilter');
 const searchInput = document.getElementById('searchInput');
@@ -24,15 +15,15 @@ const deliveredCountEl = document.getElementById('deliveredCount');
 
 let deliveredJobs = [];
 
-const salesRef = ref(db, 'sales');
-onValue(salesRef, (snapshot) => {
+// OPTIMIZATION: Only fetch jobs that are "Delivered"
+const deliveredQuery = query(ref(db, 'sales'), orderByChild('status'), equalTo('Delivered'));
+
+onValue(deliveredQuery, (snapshot) => {
     deliveredJobs = []; 
     snapshot.forEach((childSnapshot) => {
         const job = childSnapshot.val();
-        if (job.status === "Delivered") {
-            job.id = childSnapshot.key; 
-            deliveredJobs.push(job);
-        }
+        job.id = childSnapshot.key; 
+        deliveredJobs.push(job);
     });
     applyFilters();
 });
@@ -73,7 +64,6 @@ function renderTable(jobs) {
     
     jobs.forEach((job) => {
         const row = document.createElement('tr');
-        // FIXED: Removed text-dark from the Amount row at the bottom and replaced with text-body-emphasis
         row.innerHTML = `
             <td class="fw-bold text-success-emphasis">${job.dateDeliver}</td>
             <td class="fw-bold">${job.doctor}</td>

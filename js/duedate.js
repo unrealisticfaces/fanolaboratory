@@ -2,20 +2,11 @@
 
 import { auth, db } from './firebase-config.js';
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-import { ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+import { ref, onValue, query, orderByChild, equalTo } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
 onAuthStateChanged(auth, (user) => {
     if (!user) window.location.href = 'index.html'; 
 });
-
-const logoutBtn = document.getElementById('logoutBtn');
-if (logoutBtn) {
-    logoutBtn.addEventListener('click', async () => {
-        await signOut(auth);
-        localStorage.clear();
-        window.location.href = 'index.html';
-    });
-}
 
 const customDateFilter = document.getElementById('customDateFilter');
 const searchInput = document.getElementById('searchInput');
@@ -24,12 +15,14 @@ const dueCountEl = document.getElementById('dueCount');
 
 let activeJobs = [];
 
-const salesRef = ref(db, 'sales');
-onValue(salesRef, (snapshot) => {
+// OPTIMIZATION: Only fetch jobs that are "In Progress" to check their due dates
+const dueQuery = query(ref(db, 'sales'), orderByChild('status'), equalTo('In Progress'));
+
+onValue(dueQuery, (snapshot) => {
     activeJobs = []; 
     snapshot.forEach((childSnapshot) => {
         const job = childSnapshot.val();
-        if (job.status === "In Progress" && job.dueDate && job.dueDate !== "-") {
+        if (job.dueDate && job.dueDate !== "-") {
             job.id = childSnapshot.key; 
             activeJobs.push(job);
         }
@@ -74,14 +67,12 @@ function renderTable(jobs) {
     todayObj.setHours(0, 0, 0, 0);
 
     jobs.forEach((job) => {
-        // FIXED: Uses text-body instead of text-dark so it adapts to Light/Dark Mode
         let dateColorClass = "text-body";
         
         const dueObj = new Date(job.dueDate);
         const diffDays = Math.ceil((dueObj - todayObj) / (1000 * 3600 * 24));
 
         if (diffDays < 0) {
-            // FIXED: Uses text-bg-danger for perfect contrast
             dateColorClass = "badge text-bg-danger px-2 py-1 shadow-sm"; 
         } else if (diffDays === 0) {
             dateColorClass = "text-danger-emphasis fw-bold"; 

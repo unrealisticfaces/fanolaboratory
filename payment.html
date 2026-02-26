@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Due Dates - Fano Laboratory</title>
+    <title>Payments & Balances - Fano Laboratory</title>
     <script>const savedTheme = localStorage.getItem('theme') || 'dark'; document.documentElement.setAttribute('data-bs-theme', savedTheme);</script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body { overflow-x: hidden; }
-        .sidebar { width: 250px; height: 100%; position: fixed; top: 0; left: 0; bottom: 0; background-color: #0f172a !important; border-right: 1px solid rgba(255, 255, 255, 0.1); z-index: 1040; transition: transform 0.3s ease; overflow-y: auto !important; -webkit-overflow-scrolling: touch; }
+        .sidebar { width: 250px; height: 100dvh; position: fixed; top: 0; left: 0; background-color: #0f172a !important; border-right: 1px solid rgba(255, 255, 255, 0.1); z-index: 1040; transition: transform 0.3s ease; overflow-y: auto !important; -webkit-overflow-scrolling: touch; }
         .sidebar::-webkit-scrollbar { display: none; }
         .sidebar { -ms-overflow-style: none; scrollbar-width: none; }
         .sidebar.collapsed { transform: translateX(-250px); }
@@ -20,13 +20,16 @@
         .top-header { background-color: var(--bs-body-bg); border-bottom: 1px solid var(--bs-border-color); height: 60px; position: sticky; top: 0; z-index: 999; }
         #sidebarOverlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); z-index: 1030; display: none; opacity: 0; transition: opacity 0.3s ease; }
         #sidebarOverlay.show { display: block; opacity: 1; }
+        
         @media (max-width: 768px) {
-            .sidebar { transform: translateX(-250px); }
+            .sidebar { transform: translateX(-250px); padding-bottom: 100px !important; }
             .sidebar.mobile-open { transform: translateX(0); box-shadow: 4px 0 15px rgba(0,0,0,0.5); }
             .main-content { margin-left: 0; }
             .main-content.expanded { margin-left: 0; }
         }
+        
         .table { font-size: 0.85rem; }
+        .modal-content { border: none; border-radius: 12px; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2); }
     </style>
 </head>
 <body>
@@ -41,9 +44,9 @@
             <li class="nav-item"><a class="nav-link" href="dashboard.html">📊 Dashboard</a></li>
             <li class="nav-item"><a class="nav-link" href="sales.html">📁 All Sales</a></li>
             <li class="nav-item"><a class="nav-link" href="inprogress.html">⚙️ In Progress</a></li>
-            <li class="nav-item"><a class="nav-link active" href="duedate.html">⏳ Due Dates</a></li>
+            <li class="nav-item"><a class="nav-link" href="duedate.html">⏳ Due Dates</a></li>
             <li class="nav-item"><a class="nav-link" href="delivered.html">✅ Delivered Log</a></li>
-            <li class="nav-item"><a class="nav-link" href="payment.html">💳 Payments</a></li>
+            <li class="nav-item"><a class="nav-link active" href="payment.html">💳 Payments</a></li>
             <li class="nav-item"><a class="nav-link" href="audit.html">🔒 Audit Logs</a></li>
         </ul>
         <hr class="text-white-50">
@@ -69,36 +72,33 @@
 
         <div class="container-fluid mt-4 px-3 px-md-4 pb-5">
             <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 border-bottom border-secondary-subtle pb-3 gap-2">
-                <h2 class="fw-bold mb-0 fs-3">Upcoming Due Dates</h2>
+                <h2 class="fw-bold mb-0 fs-3">Outstanding Balances</h2>
                 <div class="bg-danger text-white px-3 py-1 rounded shadow-sm">
-                    <h5 class="mb-0 fw-bold">Active: <span id="dueCount">0</span></h5>
+                    <h5 class="mb-0 fw-bold">Total Pending: <span id="totalPendingValue">₱0</span></h5>
                 </div>
             </div>
 
             <div class="row mb-4 g-3 align-items-end">
-                <div class="col-md-3">
-                    <label class="form-label fw-bold small text-uppercase">Filter by Due Date</label>
-                    <input type="date" id="customDateFilter" class="form-control shadow-sm border-danger bg-body text-body">
-                </div>
-                <div class="col-md-9">
-                    <label class="form-label fw-bold small text-uppercase">Search Records</label>
-                    <input type="text" id="searchInput" class="form-control shadow-sm bg-body text-body" placeholder="Search Doctor, RX Number, Desc...">
+                <div class="col-md-12">
+                    <label class="form-label fw-bold small text-uppercase">Search Unpaid Records</label>
+                    <input type="text" id="searchInput" class="form-control shadow-sm bg-body text-body" placeholder="Search Doctor, RX Number, or Description...">
                 </div>
             </div>
 
             <div class="card shadow-sm border-0 bg-body-tertiary">
                 <div class="card-body p-0">
-                    <div class="table-responsive rounded">
-                        <table class="table table-sm table-hover table-bordered align-middle text-nowrap mb-0">
-                            <thead class="table-dark" style="--bs-table-bg: #dc3545;">
+                    <div class="table-responsive rounded border border-secondary-subtle">
+                        <table class="table table-sm table-hover table-bordered align-middle mb-0">
+                            <thead class="table-dark text-nowrap">
                                 <tr>
-                                    <th>Due Date</th><th>Date Received</th><th class="text-info">RX Number</th>
-                                    <th>Doctor</th><th>Description</th><th>Units</th><th>Shade</th>
-                                    <th>Tech (Metal)</th><th>Tech (Build Up)</th>
+                                    <th>Date Rec'd</th><th class="text-info">RX Number</th>
+                                    <th>Doctor</th><th>Description</th>
+                                    <th>Total (₱)</th><th>Paid (₱)</th>
+                                    <th class="text-danger">Balance (₱)</th><th>Pay Status</th><th>Job Status</th><th>Action</th>
                                 </tr>
                             </thead>
-                            <tbody id="dueTableBody">
-                                <tr><td colspan="9" class="text-center py-5"><div class="spinner-border text-danger"></div><p class="mt-2 text-muted fw-bold">Loading due dates...</p></td></tr>
+                            <tbody id="paymentTableBody">
+                                <tr><td colspan="10" class="text-center py-5"><div class="spinner-border text-primary"></div><p class="mt-2 text-muted fw-bold">Loading unpaid jobs...</p></td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -107,9 +107,55 @@
         </div>
     </div>
 
+    <div class="modal fade" id="updatePaymentModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content bg-body text-body">
+                <div class="modal-header bg-success text-white border-0">
+                    <h5 class="modal-title fw-bold">Update Payment</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-3 p-md-4">
+                    <form id="updatePaymentForm">
+                        <input type="hidden" id="payJobId">
+                        <div class="mb-3">
+                            <h6 class="fw-bold text-info-emphasis mb-0 fs-5" id="payDoctorName">Dr. Name</h6>
+                            <small class="text-body-secondary fw-bold" id="payJobDesc">RX-123 | Desc</small>
+                        </div>
+                        <div class="p-3 bg-body-secondary rounded mb-4 border border-secondary-subtle">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span class="text-muted small fw-bold">Total Amount:</span>
+                                <span class="fw-bold fs-6" id="payTotalAmount">₱0</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span class="text-muted small fw-bold">Previously Paid:</span>
+                                <span class="text-success fw-bold fs-6" id="payCurrentPaid">₱0</span>
+                            </div>
+                            <div class="d-flex justify-content-between border-top border-secondary-subtle mt-2 pt-2">
+                                <span class="text-danger fw-bold">Remaining Balance:</span>
+                                <span class="text-danger fw-bold fs-5" id="payCurrentBalance">₱0</span>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-success">Add New Payment Amount (₱) *</label>
+                            <input type="number" step="0.01" class="form-control border-success shadow-sm form-control-lg bg-body text-body fw-bold" id="payAddAmount" placeholder="Enter amount..." required>
+                        </div>
+                        <div class="mb-4">
+                            <label class="form-label small fw-bold">Update Status To</label>
+                            <select class="form-select shadow-sm bg-body text-body" id="payNewStatus">
+                                <option value="Downpayment">Downpayment</option>
+                                <option value="Paid">Paid in Full</option>
+                            </select>
+                        </div>
+                        <button type="submit" id="savePaymentBtn" class="btn btn-success w-100 fw-bold py-3 shadow-sm fs-5">Confirm Payment</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script type="module" src="js/firebase-config.js"></script>
     <script type="module" src="js/global.js"></script>
-    <script type="module" src="js/duedate.js"></script>
+    <script type="module" src="js/payment.js"></script>
 </body>
 </html>

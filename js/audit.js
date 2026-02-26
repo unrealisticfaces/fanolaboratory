@@ -2,153 +2,112 @@
 
 import { auth, db } from './firebase-config.js';
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-import { ref, onValue, remove, push, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+// ADDED query and limitToLast to prevent downloading the whole database at once!
+import { ref, onValue, remove, query, limitToLast } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
 let currentUserRole = 'staff';
-let currentUserName = 'Unknown User';
 
-// --- AUTHENTICATION & ROLE CHECK ---
 onAuthStateChanged(auth, (user) => {
     if (!user) {
         window.location.href = 'index.html'; 
     } else {
-        // Fetch role and name from LocalStorage
         currentUserRole = localStorage.getItem('userRole') || 'staff';
-        currentUserName = localStorage.getItem('userName') || user.email;
-
-        // If the user is an admin, reveal the "Clear Logs" button
-        if (currentUserRole === 'admin') {
-            const clearLogsBtn = document.getElementById('clearLogsBtn');
-            if (clearLogsBtn) clearLogsBtn.style.display = 'inline-block';
+        
+        // Show "Clear Logs" button ONLY if the user is an Admin
+        const clearLogsBtn = document.getElementById('clearLogsBtn');
+        if (currentUserRole === 'admin' && clearLogsBtn) {
+            clearLogsBtn.style.display = 'inline-block';
         }
     }
 });
 
-const logoutBtn = document.getElementById('logoutBtn');
-if (logoutBtn) {
-    logoutBtn.addEventListener('click', async () => {
-        await signOut(auth);
-        localStorage.clear();
-        window.location.href = 'index.html';
-    });
-}
-
-// --- DOM ELEMENTS ---
 const auditLogBody = document.getElementById('auditLogBody');
-const searchInput = document.getElementById('searchInput');
+const logCountEl = document.getElementById('logCount');
 const actionFilter = document.getElementById('actionFilter');
-const logCount = document.getElementById('logCount');
+const searchInput = document.getElementById('searchInput');
 
 let allLogs = [];
 
-// --- FETCH AUDIT LOGS ---
-const logsRef = ref(db, 'audit_logs');
+// OPTIMIZATION: Instead of fetching ALL logs, we only fetch the latest 200
+const logsRef = query(ref(db, 'audit_logs'), limitToLast(200));
+
 onValue(logsRef, (snapshot) => {
     allLogs = [];
     snapshot.forEach((childSnapshot) => {
         const log = childSnapshot.val();
         log.id = childSnapshot.key;
-        
-        log.parsedTime = new Date(log.timestamp).getTime() || 0;
-        
         allLogs.push(log);
     });
 
-    allLogs.sort((a, b) => b.parsedTime - a.parsedTime);
+    // Sort newest first
+    allLogs.reverse(); 
     applyFilters();
 });
 
-// --- FILTER LOGIC ---
-actionFilter.addEventListener('change', applyFilters);
-searchInput.addEventListener('input', applyFilters);
-
 function applyFilters() {
-    const searchTerm = searchInput.value.toLowerCase();
     const actionTerm = actionFilter.value;
+    const searchTerm = searchInput.value.toLowerCase();
 
     const filtered = allLogs.filter(log => {
-        if (actionTerm !== "All" && log.action !== actionTerm) {
-            return false;
-        }
-        if (searchTerm) {
-            return (
-                (log.user && log.user.toLowerCase().includes(searchTerm)) ||
-                (log.details && log.details.toLowerCase().includes(searchTerm)) ||
-                (log.timestamp && log.timestamp.toLowerCase().includes(searchTerm))
-            );
-        }
-        return true;
+        const matchAction = actionTerm === 'All' || log.action === actionTerm;
+        const matchSearch = 
+            (log.user && log.user.toLowerCase().includes(searchTerm)) ||
+            (log.details && log.details.toLowerCase().includes(searchTerm));
+        
+        return matchAction && matchSearch;
     });
 
     renderTable(filtered);
 }
 
-// --- RENDER TABLE ---
 function renderTable(logs) {
     auditLogBody.innerHTML = '';
-    logCount.textContent = logs.length;
+    logCountEl.textContent = logs.length;
 
     if (logs.length === 0) {
-        auditLogBody.innerHTML = `<tr><td colspan="4" class="text-center text-muted py-4">No audit logs found matching your criteria.</td></tr>`;
+        auditLogBody.innerHTML = `<tr><td colspan="4" class="text-center text-muted py-4">No logs found.</td></tr>`;
         return;
     }
 
     logs.forEach(log => {
         let actionBadge = 'bg-secondary';
-        
-        if (log.action === "CREATE") actionBadge = 'bg-primary';
-        else if (log.action === "UPDATE") actionBadge = 'bg-warning text-dark';
-        else if (log.action === "DELETE") actionBadge = 'bg-danger';
-        else if (log.action === "PRINT") actionBadge = 'bg-info text-dark';
-        else if (log.action === "EXPORT") actionBadge = 'bg-success';
+        if (log.action === 'CREATE') actionBadge = 'bg-success';
+        if (log.action === 'UPDATE') actionBadge = 'bg-warning text-dark';
+        if (log.action === 'DELETE') actionBadge = 'bg-danger';
+        if (log.action === 'PRINT') actionBadge = 'bg-info text-dark';
+        if (log.action === 'EXPORT') actionBadge = 'bg-primary';
 
         const row = document.createElement('tr');
         row.innerHTML = `
-            <td class="text-muted">${log.timestamp}</td>
-            <td class="fw-bold">${log.user || 'Unknown'}</td>
+            <td class="text-body-secondary small">${log.timestamp}</td>
+            <td class="fw-bold">${log.user}</td>
             <td><span class="badge ${actionBadge}">${log.action}</span></td>
-            <td>${log.details}</td>
+            <td class="text-body-emphasis">${log.details}</td>
         `;
         auditLogBody.appendChild(row);
     });
 }
 
-// --- CLEAR ALL LOGS (ADMIN ONLY) ---
+if (actionFilter) actionFilter.addEventListener('change', applyFilters);
+if (searchInput) searchInput.addEventListener('input', applyFilters);
+
+// ADMIN FEATURE: Clear all logs
 const clearLogsBtn = document.getElementById('clearLogsBtn');
 if (clearLogsBtn) {
     clearLogsBtn.addEventListener('click', async () => {
-        // Double check permission
         if (currentUserRole !== 'admin') {
-            alert("Unauthorized: Only administrators can clear audit logs.");
+            alert("Only administrators can clear audit logs.");
             return;
         }
 
-        // Warning 1
-        const confirmDelete = confirm("⚠️ WARNING: Are you sure you want to delete ALL audit logs?\n\nThis action cannot be undone.");
-        
-        if (confirmDelete) {
-            // Warning 2 (Double confirmation to prevent accidental clicks)
-            const doubleConfirm = confirm("Are you absolutely sure? Click OK to permanently wipe the log database.");
-            
-            if (doubleConfirm) {
-                try {
-                    // Delete all logs
-                    await remove(logsRef);
-                    
-                    // Create a single new log so there's a record that the admin cleared the system
-                    const newLogRef = push(logsRef);
-                    await set(newLogRef, {
-                        timestamp: new Date().toLocaleString(),
-                        user: currentUserName,
-                        action: "DELETE",
-                        details: "ADMIN ACTION: Cleared all previous system audit logs."
-                    });
-
-                    alert("System logs have been successfully wiped.");
-                } catch (error) {
-                    console.error("Error clearing logs: ", error);
-                    alert("Failed to clear logs. Check your database permissions.");
-                }
+        const confirmClear = confirm("⚠️ WARNING: This will permanently delete ALL audit logs. This cannot be undone. Do you want to proceed?");
+        if (confirmClear) {
+            try {
+                await remove(ref(db, 'audit_logs'));
+                alert("Audit logs successfully cleared.");
+            } catch (error) {
+                console.error("Error clearing logs:", error);
+                alert("Failed to clear logs.");
             }
         }
     });

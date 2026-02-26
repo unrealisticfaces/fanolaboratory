@@ -2,12 +2,25 @@
 
 import { auth, db } from './firebase-config.js';
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-import { ref, onValue, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+import { ref, onValue, update, remove, get, push, set, query, orderByChild, equalTo } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-// --- 1. AUTH CHECK ---
+let currentUserName = 'Unknown User';
+let currentUserRole = 'staff'; 
+
 onAuthStateChanged(auth, (user) => {
     if (!user) window.location.href = 'index.html'; 
+    else {
+        currentUserName = localStorage.getItem('userName') || user.email;
+        currentUserRole = localStorage.getItem('userRole') || 'staff'; 
+    }
 });
+
+async function createLog(action, details) {
+    try {
+        const logRef = ref(db, 'audit_logs');
+        await set(push(logRef), { timestamp: new Date().toLocaleString(), user: currentUserName, action: action, details: details });
+    } catch (error) { console.error("Audit Log Error:", error); }
+}
 
 const customDateFilter = document.getElementById('customDateFilter');
 const searchInput = document.getElementById('searchInput');
@@ -16,16 +29,15 @@ const progressCountEl = document.getElementById('progressCount');
 
 let inProgressJobs = [];
 
-// --- 2. FETCH ACTIVE JOBS ---
-const salesRef = ref(db, 'sales');
-onValue(salesRef, (snapshot) => {
+// OPTIMIZATION: Only fetch jobs that are "In Progress"
+const inProgressQuery = query(ref(db, 'sales'), orderByChild('status'), equalTo('In Progress'));
+
+onValue(inProgressQuery, (snapshot) => {
     inProgressJobs = []; 
     snapshot.forEach((childSnapshot) => {
         const job = childSnapshot.val();
-        if (job.status === "In Progress") {
-            job.id = childSnapshot.key; 
-            inProgressJobs.push(job);
-        }
+        job.id = childSnapshot.key; 
+        inProgressJobs.push(job);
     });
     applyFilters();
 });
@@ -39,7 +51,6 @@ function applyFilters() {
 
     let filtered = inProgressJobs.filter(job => {
         if (customDate && job.dateReceived !== customDate) return false;
-
         if (searchTerm) {
             return (
                 job.doctor.toLowerCase().includes(searchTerm) || 
@@ -54,7 +65,6 @@ function applyFilters() {
     renderTable(filtered);
 }
 
-// --- 3. RENDER TABLE ---
 function renderTable(jobs) {
     progressTableBody.innerHTML = ''; 
     progressCountEl.textContent = jobs.length;
@@ -65,6 +75,12 @@ function renderTable(jobs) {
     }
     
     jobs.forEach((job) => {
+        let actionBtns = `<button class="btn btn-sm btn-outline-secondary edit-btn shadow-sm" data-id="${job.id}" title="Edit/Update Job">✏️ Edit</button>`;
+        
+        if (currentUserRole === 'admin') {
+            actionBtns += ` <button class="btn btn-sm btn-outline-danger delete-btn shadow-sm ms-1" data-id="${job.id}" title="Delete Job">🗑️ Delete</button>`;
+        }
+
         const row = document.createElement('tr');
         row.innerHTML = `
             <td class="fw-bold">${job.dateReceived}</td>
@@ -77,22 +93,40 @@ function renderTable(jobs) {
             <td>${job.techMetal || '-'}</td>
             <td>${job.techBuildUp || '-'}</td>
             <td class="small fw-bold text-danger-emphasis" style="max-width: 150px; white-space: normal;">${job.remarks || ''}</td>
-            <td>
-                <button class="btn btn-sm btn-outline-secondary edit-btn shadow-sm" data-id="${job.id}" title="Edit/Update Job">✏️ Edit</button>
-            </td>
+            <td>${actionBtns}</td>
         `;
         progressTableBody.appendChild(row);
     });
 }
 
-// --- 4. POPULATE EDIT MODAL ---
 const editSaleForm = document.getElementById('editSaleForm');
 let editModalInstance;
 
 progressTableBody.addEventListener('click', async (e) => {
     const target = e.target;
+    const jobId = target.getAttribute('data-id');
+    if (!jobId) return;
+
+    if (target.classList.contains('delete-btn')) {
+        if (currentUserRole !== 'admin') {
+            alert("Only administrators can delete jobs.");
+            return;
+        }
+        if (confirm("⚠️ Are you sure you want to permanently delete this lab job?")) {
+            try {
+                const snap = await get(ref(db, `sales/${jobId}`));
+                const data = snap.val();
+                await remove(ref(db, `sales/${jobId}`));
+                await createLog("DELETE", `Deleted in-progress job for ${data.doctor} (RX: ${data.rxNumber || '-'})`);
+            } catch (error) {
+                console.error("Error deleting record: ", error);
+                alert("Failed to delete record.");
+            }
+        }
+        return; 
+    }
+
     if (target.classList.contains('edit-btn')) {
-        const jobId = target.getAttribute('data-id');
         const job = inProgressJobs.find(j => j.id === jobId);
         if (job) {
             document.getElementById('editJobId').value = jobId;
@@ -110,13 +144,10 @@ progressTableBody.addEventListener('click', async (e) => {
             document.getElementById('editMessengerDeliver').value = job.messengerDeliver !== "-" ? job.messengerDeliver : "";
             document.getElementById('editDateDeliver').value = job.dateDeliver !== "-" ? job.dateDeliver : "";
 
-            // Needed to calculate billing data for the Email Receipt
             document.getElementById('editAmount').value = job.amount; 
             document.getElementById('editPaymentStatus').value = job.paymentStatus || "Unpaid"; 
             document.getElementById('editAmountPaid').value = job.amountPaid || 0; 
             document.getElementById('editRemarks').value = job.remarks || "";
-            
-            // Clear the email field every time the modal opens
             document.getElementById('editDoctorEmail').value = ""; 
             
             editModalInstance = new bootstrap.Modal(document.getElementById('editSaleModal'));
@@ -125,20 +156,18 @@ progressTableBody.addEventListener('click', async (e) => {
     }
 });
 
-// --- 5. UPDATE FIREBASE & SEND EMAILJS RECEIPT ---
 if (editSaleForm) {
     editSaleForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         
         const saveBtn = document.getElementById('saveUpdateBtn');
-        saveBtn.innerText = "Saving & Sending..."; // Visual feedback
+        saveBtn.innerText = "Saving & Sending..."; 
         saveBtn.disabled = true;
 
         const jobId = document.getElementById('editJobId').value;
         let updatedDateDeliver = document.getElementById('editDateDeliver').value;
         let derivedStatus = "In Progress";
 
-        // Auto-mark as delivered if a delivery date is provided
         if (updatedDateDeliver && updatedDateDeliver.trim() !== "") {
             derivedStatus = "Delivered";
         } else {
@@ -160,16 +189,13 @@ if (editSaleForm) {
         };
 
         try {
-            // A. UPDATE FIREBASE FIRST
             await update(ref(db, `sales/${jobId}`), updatedData);
 
-            // B. GRAB DATA FOR EMAIL
             const doctorEmail = document.getElementById('editDoctorEmail').value.trim();
             const totalAmount = parseFloat(document.getElementById('editAmount').value) || 0;
             const amountPaid = parseFloat(document.getElementById('editAmountPaid').value) || 0;
             const balance = totalAmount - amountPaid;
 
-            // C. TRIGGER EMAILJS IF APPLICABLE
             if (derivedStatus === "Delivered" && doctorEmail !== "") {
                 const templateParams = {
                     to_email: doctorEmail,
@@ -181,17 +207,14 @@ if (editSaleForm) {
                     balance: balance.toLocaleString()
                 };
 
-                // 🚨 IMPORTANT: Replace with your actual Service ID and Template ID 🚨
-                emailjs.send('service_fkrvq76', 'template_ipgfz9o', templateParams)
-                    .then(function(response) {
-                       console.log('Email sent successfully!', response.status, response.text);
+                emailjs.send('YOUR_SERVICE_ID', 'YOUR_TEMPLATE_ID', templateParams)
+                    .then(function() {
                        alert("Job marked Delivered and Receipt Email sent to Doctor!");
                     }, function(error) {
                        console.error('Email Failed...', error);
-                       alert("Job saved, but the email failed to send. Check console for details.");
+                       alert("Job saved, but the email failed to send.");
                     });
             } else {
-               // Normal success message if no email was sent
                alert("Job updated successfully!");
             }
 
@@ -200,7 +223,6 @@ if (editSaleForm) {
             console.error("Error updating: ", error);
             alert("Failed to update record.");
         } finally {
-            // Reset button state
             saveBtn.innerText = "Update Record";
             saveBtn.disabled = false;
         }

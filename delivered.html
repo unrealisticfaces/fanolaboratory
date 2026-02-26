@@ -43,6 +43,7 @@
             <li class="nav-item"><a class="nav-link" href="inprogress.html">⚙️ In Progress</a></li>
             <li class="nav-item"><a class="nav-link" href="duedate.html">⏳ Due Dates</a></li>
             <li class="nav-item"><a class="nav-link active" href="delivered.html">✅ Delivered Log</a></li>
+            <li class="nav-item"><a class="nav-link" href="payment.html">💳 Payments</a></li>
             <li class="nav-item"><a class="nav-link" href="audit.html">🔒 Audit Logs</a></li>
         </ul>
         <hr class="text-white-50">
@@ -96,7 +97,9 @@
                                     <th>Amount Paid (₱)</th>
                                 </tr>
                             </thead>
-                            <tbody id="deliveredTableBody"></tbody>
+                            <tbody id="deliveredTableBody">
+                                <tr><td colspan="7" class="text-center py-5"><div class="spinner-border text-success"></div><p class="mt-2 text-muted fw-bold">Loading delivered history...</p></td></tr>
+                            </tbody>
                         </table>
                     </div>
                 </div>

@@ -10,7 +10,7 @@
     <script type="text/javascript">
         (function() {
             // REPLACE THIS WITH YOUR ACTUAL PUBLIC KEY FROM EMAILJS ACCOUNT PAGE
-            emailjs.init({ publicKey: "IF6rT9DBC8HM5Fn5a" }); 
+            emailjs.init({ publicKey: "YOUR_PUBLIC_KEY_HERE" }); 
         })();
     </script>
 
@@ -53,6 +53,7 @@
             <li class="nav-item"><a class="nav-link active" href="inprogress.html">⚙️ In Progress</a></li>
             <li class="nav-item"><a class="nav-link" href="duedate.html">⏳ Due Dates</a></li>
             <li class="nav-item"><a class="nav-link" href="delivered.html">✅ Delivered Log</a></li>
+            <li class="nav-item"><a class="nav-link" href="payment.html">💳 Payments</a></li>
             <li class="nav-item"><a class="nav-link" href="audit.html">🔒 Audit Logs</a></li>
         </ul>
         <hr class="text-white-50">
@@ -106,7 +107,9 @@
                                     <th>Tech (Metal)</th><th>Tech (Build Up)</th><th>Remarks</th><th>Actions</th>
                                 </tr>
                             </thead>
-                            <tbody id="progressTableBody"></tbody>
+                            <tbody id="progressTableBody">
+                                <tr><td colspan="11" class="text-center py-5"><div class="spinner-border text-primary"></div><p class="mt-2 text-muted fw-bold">Loading active jobs...</p></td></tr>
+                            </tbody>
                         </table>
                     </div>
                 </div>
@@ -127,7 +130,7 @@
                         
                         <h6 class="text-warning border-bottom pb-2 fw-bold">Job Details</h6>
                         <div class="row mb-3">
-                            <div class="col-6 col-md-3 mb-2"><label class="form-label small fw-bold">Date Received</label><input type="date" class="form-control shadow-sm bg-body-secondary text-body border-secondary-subtle" id="editDateReceived" readonly></div>
+                            <div class="col-6 col-md-3 mb-2"><label class="form-label small fw-bold">Date Rec'd</label><input type="date" class="form-control shadow-sm bg-body-secondary text-body border-secondary-subtle" id="editDateReceived" readonly></div>
                             <div class="col-6 col-md-3 mb-2"><label class="form-label text-danger small fw-bold">Due Date *</label><input type="date" class="form-control border-danger shadow-sm bg-body text-body" id="editDueDate" required></div>
                             <div class="col-6 col-md-3 mb-2"><label class="form-label text-info small fw-bold">RX Number</label><input type="text" class="form-control border-info shadow-sm bg-body text-body" id="editRxNumber"></div>
                             <div class="col-6 col-md-3 mb-2"><label class="form-label small fw-bold">Doctor *</label><input type="text" class="form-control shadow-sm bg-body text-body" id="editDoctor" required></div>
