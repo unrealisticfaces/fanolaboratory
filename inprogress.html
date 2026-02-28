@@ -8,16 +8,13 @@
     
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
     <script type="text/javascript">
-        (function() {
-            // REPLACE THIS WITH YOUR ACTUAL PUBLIC KEY FROM EMAILJS ACCOUNT PAGE
-            emailjs.init({ publicKey: "YOUR_PUBLIC_KEY_HERE" }); 
-        })();
+        (function() { emailjs.init({ publicKey: "YOUR_PUBLIC_KEY_HERE" }); })();
     </script>
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body { overflow-x: hidden; }
-        .sidebar { width: 250px; height: 100%; position: fixed; top: 0; left: 0; bottom: 0; background-color: #0f172a !important; border-right: 1px solid rgba(255, 255, 255, 0.1); z-index: 1040; transition: transform 0.3s ease; overflow-y: auto !important; -webkit-overflow-scrolling: touch; }
+        .sidebar { width: 250px; height: 100dvh; position: fixed; top: 0; left: 0; background-color: #0f172a !important; border-right: 1px solid rgba(255, 255, 255, 0.1); z-index: 1040; transition: transform 0.3s ease; overflow-y: auto !important; -webkit-overflow-scrolling: touch; }
         .sidebar::-webkit-scrollbar { display: none; }
         .sidebar { -ms-overflow-style: none; scrollbar-width: none; }
         .sidebar.collapsed { transform: translateX(-250px); }
@@ -29,12 +26,14 @@
         .top-header { background-color: var(--bs-body-bg); border-bottom: 1px solid var(--bs-border-color); height: 60px; position: sticky; top: 0; z-index: 999; }
         #sidebarOverlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); z-index: 1030; display: none; opacity: 0; transition: opacity 0.3s ease; }
         #sidebarOverlay.show { display: block; opacity: 1; }
+        
         @media (max-width: 768px) {
-            .sidebar { transform: translateX(-250px); }
+            .sidebar { transform: translateX(-250px); padding-bottom: 100px !important; }
             .sidebar.mobile-open { transform: translateX(0); box-shadow: 4px 0 15px rgba(0,0,0,0.5); }
             .main-content { margin-left: 0; }
             .main-content.expanded { margin-left: 0; }
         }
+        
         .table { font-size: 0.85rem; }
         .modal-content { border: none; border-radius: 12px; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2); }
     </style>
@@ -45,13 +44,12 @@
 
     <div class="sidebar d-flex flex-column p-3" id="sidebar" data-bs-theme="dark">
         <a href="dashboard.html" class="text-white text-decoration-none mb-4 mt-2 px-2 d-flex align-items-center">
-            <span class="fs-4 fw-bold" style="color: #00d1ff;">Menu</span>
+            <span class="fs-4 fw-bold" style="color: #00d1ff;">Fano Lab</span>
         </a>
         <ul class="nav nav-pills flex-column mb-auto">
             <li class="nav-item"><a class="nav-link" href="dashboard.html">📊 Dashboard</a></li>
             <li class="nav-item"><a class="nav-link" href="sales.html">📁 All Sales</a></li>
             <li class="nav-item"><a class="nav-link active" href="inprogress.html">⚙️ In Progress</a></li>
-            <li class="nav-item"><a class="nav-link" href="duedate.html">⏳ Due Dates</a></li>
             <li class="nav-item"><a class="nav-link" href="delivered.html">✅ Delivered Log</a></li>
             <li class="nav-item"><a class="nav-link" href="payment.html">💳 Payments</a></li>
             <li class="nav-item"><a class="nav-link" href="audit.html">🔒 Audit Logs</a></li>
@@ -59,7 +57,7 @@
         <hr class="text-white-50">
         <div>
             <a href="queue.html" class="nav-link text-warning fw-bold py-2 px-3 mb-2 rounded text-center d-block text-decoration-none" style="background: rgba(255, 193, 7, 0.1); border: 1px solid rgba(255,193,7,0.3);">🖥️ Live Queue</a>
-            <button id="logoutBtn" class="btn btn-outline-danger w-100 fw-bold shadow-sm">Logout</button>
+            <button id="logoutBtn" class="btn btn-outline-danger w-100 fw-bold shadow-sm">🚪 Logout</button>
         </div>
     </div>
 
@@ -72,7 +70,7 @@
                     <button class="btn btn-warning text-dark fw-bold btn-sm dropdown-toggle position-relative shadow-sm" type="button" id="notificationDropdown" data-bs-toggle="dropdown" aria-expanded="false">
                         🔔 Alerts <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="notificationCount" style="display: none;">0</span>
                     </button>
-                    <ul class="dropdown-menu dropdown-menu-end shadow-lg" aria-labelledby="notificationDropdown" id="notificationList" style="min-width: 320px; max-width: 100vw;"></ul>
+                    <ul class="dropdown-menu dropdown-menu-end shadow-lg" aria-labelledby="notificationDropdown" id="notificationList" style="min-width: 320px; max-width: 100vw; max-height: 400px; overflow-y: auto; overflow-x: hidden;"></ul>
                 </div>
             </div>
         </div>
@@ -87,10 +85,17 @@
 
             <div class="row mb-4 g-3 align-items-end">
                 <div class="col-md-3">
-                    <label class="form-label fw-bold small text-uppercase">Filter by Date Received</label>
-                    <input type="date" id="customDateFilter" class="form-control shadow-sm border-warning bg-body text-body">
+                    <label class="form-label fw-bold small text-uppercase text-warning">Sort Table By</label>
+                    <select id="sortSelect" class="form-select shadow-sm border-warning bg-body text-body">
+                        <option value="received">Date Rec'd (Newest First)</option>
+                        <option value="due">Due Date (Closest First)</option>
+                    </select>
                 </div>
-                <div class="col-md-9">
+                <div class="col-md-3">
+                    <label class="form-label fw-bold small text-uppercase">Filter Date Rec'd</label>
+                    <input type="date" id="customDateFilter" class="form-control shadow-sm border-secondary-subtle bg-body text-body">
+                </div>
+                <div class="col-md-6">
                     <label class="form-label fw-bold small text-uppercase">Search Records</label>
                     <input type="text" id="searchInput" class="form-control shadow-sm bg-body text-body" placeholder="Search Doctor, RX Number, Desc...">
                 </div>

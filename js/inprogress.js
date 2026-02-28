@@ -24,12 +24,12 @@ async function createLog(action, details) {
 
 const customDateFilter = document.getElementById('customDateFilter');
 const searchInput = document.getElementById('searchInput');
+const sortSelect = document.getElementById('sortSelect'); // NEW Sort Dropdown
 const progressTableBody = document.getElementById('progressTableBody');
 const progressCountEl = document.getElementById('progressCount');
 
 let inProgressJobs = [];
 
-// OPTIMIZATION: Only fetch jobs that are "In Progress"
 const inProgressQuery = query(ref(db, 'sales'), orderByChild('status'), equalTo('In Progress'));
 
 onValue(inProgressQuery, (snapshot) => {
@@ -42,12 +42,14 @@ onValue(inProgressQuery, (snapshot) => {
     applyFilters();
 });
 
-customDateFilter.addEventListener('change', applyFilters);
-searchInput.addEventListener('input', applyFilters);
+if(customDateFilter) customDateFilter.addEventListener('change', applyFilters);
+if(searchInput) searchInput.addEventListener('input', applyFilters);
+if(sortSelect) sortSelect.addEventListener('change', applyFilters);
 
 function applyFilters() {
     const customDate = customDateFilter.value;
     const searchTerm = searchInput.value.toLowerCase();
+    const sortValue = sortSelect ? sortSelect.value : 'received';
 
     let filtered = inProgressJobs.filter(job => {
         if (customDate && job.dateReceived !== customDate) return false;
@@ -61,7 +63,19 @@ function applyFilters() {
         return true;
     });
 
-    filtered.sort((a, b) => new Date(b.dateReceived) - new Date(a.dateReceived));
+    // --- NEW SMART SORTING LOGIC ---
+    if (sortValue === 'due') {
+        filtered.sort((a, b) => {
+            // Push jobs with no due dates to the bottom
+            if (!a.dueDate || a.dueDate === "-") return 1;
+            if (!b.dueDate || b.dueDate === "-") return -1;
+            return new Date(a.dueDate) - new Date(b.dueDate);
+        });
+    } else {
+        // Default: Sort by Date Received (Newest First)
+        filtered.sort((a, b) => new Date(b.dateReceived) - new Date(a.dateReceived));
+    }
+
     renderTable(filtered);
 }
 
@@ -74,9 +88,29 @@ function renderTable(jobs) {
         return;
     }
     
+    // Grab today's date for color-coding the due dates
+    const todayObj = new Date();
+    todayObj.setHours(0, 0, 0, 0);
+
     jobs.forEach((job) => {
-        let actionBtns = `<button class="btn btn-sm btn-outline-secondary edit-btn shadow-sm" data-id="${job.id}" title="Edit/Update Job">✏️ Edit</button>`;
-        
+        // --- DUE DATE COLORING (Brought over from old Due Dates page) ---
+        let dueDateDisplay = job.dueDate || '-';
+        if (job.dueDate && job.dueDate !== "-") {
+            const dueObj = new Date(job.dueDate);
+            const diffDays = Math.ceil((dueObj - todayObj) / (1000 * 3600 * 24));
+            
+            if (diffDays < 0) {
+                dueDateDisplay = `<span class="badge text-bg-danger px-2 py-1 shadow-sm">${job.dueDate}</span>`; 
+            } else if (diffDays === 0) {
+                dueDateDisplay = `<span class="text-danger-emphasis fw-bold">${job.dueDate}</span>`; 
+            } else if (diffDays === 1) {
+                dueDateDisplay = `<span class="text-warning-emphasis fw-bold">${job.dueDate}</span>`; 
+            } else {
+                dueDateDisplay = `<span class="fw-bold">${job.dueDate}</span>`;
+            }
+        }
+
+        let actionBtns = `<button class="btn btn-sm btn-outline-secondary edit-btn shadow-sm" data-id="${job.id}" title="Edit/Update Job">Update</button>`;
         if (currentUserRole === 'admin') {
             actionBtns += ` <button class="btn btn-sm btn-outline-danger delete-btn shadow-sm ms-1" data-id="${job.id}" title="Delete Job">🗑️ Delete</button>`;
         }
@@ -84,16 +118,16 @@ function renderTable(jobs) {
         const row = document.createElement('tr');
         row.innerHTML = `
             <td class="fw-bold">${job.dateReceived}</td>
-            <td class="fw-bold text-danger-emphasis">${job.dueDate || '-'}</td>
+            <td>${dueDateDisplay}</td>
             <td class="text-info-emphasis fw-bold">${job.rxNumber || '-'}</td>
-            <td class="fw-bold">${job.doctor}</td>
-            <td>${job.description}</td>
+            <td class="fw-bold text-wrap" style="min-width: 140px;">${job.doctor}</td>
+            <td class="text-wrap" style="min-width: 180px;">${job.description}</td>
             <td>${job.units}</td>
             <td><span class="badge text-bg-secondary">${job.shade}</span></td>
             <td>${job.techMetal || '-'}</td>
             <td>${job.techBuildUp || '-'}</td>
             <td class="small fw-bold text-danger-emphasis" style="max-width: 150px; white-space: normal;">${job.remarks || ''}</td>
-            <td>${actionBtns}</td>
+            <td class="text-nowrap">${actionBtns}</td>
         `;
         progressTableBody.appendChild(row);
     });

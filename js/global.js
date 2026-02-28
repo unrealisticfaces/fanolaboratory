@@ -83,7 +83,8 @@ onValue(salesRef, (snapshot) => {
                 const timeDiff = dueObj.getTime() - todayObj.getTime();
                 const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
 
-                if (daysDiff <= 2) {
+                // ONLY show Due Tomorrow (1), Due Today (0), or Overdue (<0)
+                if (daysDiff <= 1) {
                     urgentJobs.push({
                         rxNumber: job.rxNumber, 
                         doctor: job.doctor,
